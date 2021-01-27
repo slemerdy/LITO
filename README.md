@@ -28,7 +28,7 @@ Your device shall be configured as is in Connections:OSC
 - Port (Outgoing): 9009
 - Port (Ingoing): 9008
 
-Once done, click on SYNC button on the first tab. This last operation shall be done at each startup of Live or if the connection between TouchOSC and the computer has been lost.
+Once done, click on SYNC button on the first tab. This last operation shall be done at each new Live project opened/created or if the connection between TouchOSC and the computer has been lost.
 
 
 # Configuration of the MIDI
