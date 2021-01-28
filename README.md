@@ -28,7 +28,7 @@ Your device shall be configured as is in Connections:OSC
 - Port (Outgoing): 9009
 - Port (Ingoing): 9008
 
-Once done, click on SYNC button on the first tab. This last operation shall be done at each new Live project opened/created or if the connection between TouchOSC and the computer has been lost.
+Once done, click on SYNC button on the first tab. This last operation shall be done at each startup of Live or if the connection between TouchOSC and the computer has been lost.
 
 
 # Configuration of the MIDI
@@ -44,12 +44,12 @@ All the other controls are buttons. The expected behaviour is a push button (no 
 
 
 # relative_mode
-mode 1 is 2â€™s Complement from 64 / Relative (Binary Offset)
+mode 1 is 2’s Complement from 64 / Relative (Binary Offset)
 turn right gives 065 - 127
 turn left gives 063 - 000
 equivalent to mode R2 on BCR2000
 
-mode 2 is 2â€™s Complement from 0 / Relative (2â€™s Complement)
+mode 2 is 2’s Complement from 0 / Relative (2’s Complement)
 turn right gives 001 - 64
 turn left gives 127 - 065
 equivalent to mode R1 on BCR2000
