@@ -4,6 +4,9 @@ import inspect
 from inspect import currentframe
 import ntpath
 import traceback
+from os.path import expanduser
+
+LOG_USE_STDERR = False
 
 try:
     import socket
@@ -74,16 +77,42 @@ def mystack():
     traceback.print_stack()
 
 def mylog(*msgs):
-    li = currentframe().f_back.f_lineno
-    text = ""
+    text = ''
     for msg in msgs:
-        text = text + " " + str(msg)
+        if text == '':
+            text = str(msg)
+        else:
+            text = text + " " + str(msg)
+    myslog(text)
+
+def mydlog(*msgs):
+    li = str(ntpath.basename(currentframe().f_back.f_code.co_filename)) + ":" + str(currentframe().f_back.f_lineno)
+    text = ''
+    for msg in msgs:
+        if text == '':
+            text = str(msg)
+        else:
+            text = text + " " + str(msg)
+
     myslog(text, li)
 
 def myslog(message, li = -1):
-    if li == -1:
-        li = currentframe().f_back.f_lineno
-    sys.stderr.write(str(li) + ":" + message.encode("utf-8"))
+
+    #li = currentframe().f_back.f_lineno
+
+    if li != -1:
+        text = str(li) + ":" + message.encode("utf-8")
+    else:
+        text = message.encode("utf-8")
+
+    if LOG_USE_STDERR == True:
+        sys.stderr.write(text)
+    else:
+        home = expanduser("~")
+        filename = home + "\\LITO.txt"
+        lfile = open(filename, 'a')
+        lfile.write(text + "\n")
+        lfile.close()
 
 def myelog(message):
 

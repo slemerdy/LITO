@@ -48,6 +48,8 @@ from Logger import mystack
 import random
 from time import sleep
 from math import floor
+from datetime import datetime
+
 
 import const
 
@@ -71,7 +73,7 @@ LOOP_TAB = 16
 
 ACCELERATION_ON_LOOPER = False
 ACCELERATION_ON_EUC = False
-
+do_param_log = False
 
 class LiveOSC:
     __module__ = __name__
@@ -124,15 +126,15 @@ class LiveOSC:
 
     def __init__(self, c_instance):
         self._LiveOSC__c_instance = c_instance
-      
+
+        mylog("----------------------------------------")
+        mylog("Starting LITO", datetime.now())
+
         self.basicAPI = 0       
         self.oscEndpoint = RemixNet.OSCEndpoint()
         self.new_song = 1
         self.use_midi_cache = True
         self.cache_midi = {}
-
-
-        log("LITO initialized")
 
         if self.song().tracks_has_listener(self.refresh_state) != 1:
             self.song().add_tracks_listener(self.refresh_state)
@@ -344,59 +346,19 @@ class LiveOSC:
                 self.oscEndpoint.send(address, float(val))
                 self.lad_faderm_input(1, float(val))
 
-            elif cc in self.lad_midi_presets and midi_bytes[2] == 0:
+            elif cc in self.lad_midi_presets and midi_bytes[2] == 0: # presets
                 idx =  self.lad_midi_presets.index(cc)
                 self.lad_menu(idx + 19)
 
-            elif cc == const.MIDI_LAD_LOWER_FADER:
-                self.xtouch_lower_encoder = not self.xtouch_lower_encoder
-                self.util_update_lower_gui() # midi lower
-                self.lad_update_faders() # midi lower
+            elif cc in self.lad_midi_buttons and midi_bytes[2] == 0:
+                if cc == const.MIDI_LAD_LOWER_FADER:
+                    self.xtouch_lower_encoder = not self.xtouch_lower_encoder
+                    self.util_update_lower_gui() # midi lower
+                    self.lad_update_faders() # midi lower
+                else:
+                    idx =  self.lad_midi_buttons.index(cc)
+                    self.lad_menu(idx+1)
 
-            elif cc == const.MIDI_LAD_MIXER_INFO and midi_bytes[2] == 0:
-                self.lad_menu(2)
-
-            elif cc == const.MIDI_LAD_ARM and midi_bytes[2] == 0:
-                self.lad_menu(9)
-
-            elif cc == const.MIDI_LAD_OVD and midi_bytes[2] == 0:
-                self.lad_menu(10)
-
-            elif cc == const.MIDI_LAD_RAND and midi_bytes[2] == 0:
-                self.lad_menu(16)
-
-            elif cc == const.MIDI_LAD_TRACK_PLUS and midi_bytes[2] == 0:
-                self.lad_menu(4)
-
-            elif cc == const.MIDI_LAD_DEVICE_PLUS and midi_bytes[2] == 0:
-                self.lad_menu(6)
-
-            elif cc == const.MIDI_LAD_PAGE_PLUS and midi_bytes[2] == 0:
-                self.lad_menu(8)
-
-            elif cc == const.MIDI_LAD_AUTO and midi_bytes[2] == 0:
-                self.lad_menu(1)
-
-            elif cc == const.MIDI_LAD_SET_RESET and midi_bytes[2] == 0:
-                self.lad_menu(12)
-
-            elif cc == const.MIDI_LAD_PERF and midi_bytes[2] == 0:
-                self.lad_menu(11)
-
-            elif cc == const.MIDI_LAD_REC and midi_bytes[2] == 0:
-                self.lad_menu(13)
-
-            elif cc == const.MIDI_LAD_MORPH and midi_bytes[2] == 0:
-                self.lad_menu(14)
-
-            elif cc == const.MIDI_LAD_TRACK_MINUS and midi_bytes[2] == 0:
-                self.lad_menu(3)
-
-            elif cc == const.MIDI_LAD_DEVICE_MINUS and midi_bytes[2] == 0:
-                self.lad_menu(5)
-
-            elif cc == const.MIDI_LAD_PAGE_MINUS and midi_bytes[2] == 0:
-                self.lad_menu(7)
 
         elif self.lito_tab == EUC_TAB:
 
@@ -585,6 +547,11 @@ class LiveOSC:
         self.oscEndpoint.send('/remix/oscserver/shutdown', 1)
         self.oscEndpoint.shutdown()
         self.new_song = 1
+
+        mylog("Disconnecting")
+        mylog("----------------------------------------")
+
+
             
     def build_midi_map(self, midi_map_handle):
 
@@ -3523,7 +3490,7 @@ class LiveOSC:
     lad_midi_buttons = [
     const.MIDI_LAD_LOWER_FADER, const.MIDI_LAD_MIXER_INFO, const.MIDI_LAD_ARM, const.MIDI_LAD_OVD,
     const.MIDI_LAD_RAND, const.MIDI_LAD_TRACK_PLUS, const.MIDI_LAD_DEVICE_PLUS, const.MIDI_LAD_PAGE_PLUS,
-    const.MIDI_LAD_AUTO, const.MIDI_LAD_SET_RESET, const.MIDI_LAD_PERF, const.MIDI_LAD_REC,
+    const.MIDI_LAD_SHOW, const.MIDI_LAD_SET_RESET, const.MIDI_LAD_PERF, const.MIDI_LAD_REC,
     const.MIDI_LAD_MORPH, const.MIDI_LAD_TRACK_MINUS, const.MIDI_LAD_DEVICE_MINUS, const.MIDI_LAD_PAGE_MINUS
     ]
 
@@ -3565,8 +3532,8 @@ class LiveOSC:
             self.lad_perf_reset_mfader(g) # lad_init
             self.lad_perf_active_mfader(g) # lad_init
 
-        self.lad_auto_display = False
-        self.lad_update_auto_gui()
+        self.lad_show_display = False
+        self.lad_update_show_gui()
 
         self.touch_send_midi_info(0, False)
         self.touch_send_midi_info(1, False)
@@ -3608,8 +3575,8 @@ class LiveOSC:
             self.lad_perf_reset_mfader(g) # lad exit
             self.lad_perf_active_mfader(g)  # lad exit
 
-        self.lad_auto_display = False
-        self.lad_update_auto_gui()
+        self.lad_show_display = False
+        self.lad_update_show_gui()
 
         self.xtouch_lower_encoder = False
         self.util_update_lower_gui() # lad_exit
@@ -3637,6 +3604,7 @@ class LiveOSC:
         self.lad_clear_registered_obj(self.lad_current_group)
         self.lad_load_param_cfg(self.lad_current_group, msg[2])
         self.lad_save_param_cfg() # load cb
+        self.lad_show_currents() # load cb
         return
 
 
@@ -3693,30 +3661,38 @@ class LiveOSC:
 
     def lad_menu_ex(self, button):
         if button == 1:
-            self.lad_auto_display = not self.lad_auto_display
-            self.lad_update_auto_gui()
-
+            if self.lad_perf_mode == False:
+                self.lad_set_all()
+            else:
+                self.lad_clear_registered_obj(self.lad_current_group)
+            self.lad_show_currents()
         elif button == 2: # mixer
             self.lad_handle_mixer_button()
         elif button == 3:
-            self.lad_change_track(0)
-        elif button == 4:
-            self.lad_change_track(1)
-        elif button == 5:
-            self.lad_change_device(0)
-        elif button == 6:
-            self.lad_change_device(1)
-        elif button == 7:
-            self.lad_change_page(0)
-        elif button == 8:
-            self.lad_change_page(1)
-        elif button == 9:
             tid = self.get_working_midi_track()
             if tid != -1:
                 LiveUtils.toggleArmTrack(tid)
-        elif button == 10:
+        elif button == 4:
             LiveUtils.getSong().overdub = not LiveUtils.getSong().overdub
-        elif button == 11:
+        elif button == 5:
+            self.lad_rand()
+        elif button == 6:
+            self.lad_change_track(1)
+        elif button == 7:
+            self.lad_change_device(1)
+        elif button == 8:
+            self.lad_change_page(1)
+        elif button == 9:
+            self.lad_show_display = not self.lad_show_display
+            self.lad_update_show_gui()
+        elif button == 10: # button SET/RESET
+            if self.lad_perf_mode == False:
+                self.lad_register_obj(self.lad_current_group, True)
+            else:
+                done = self.lad_unregister_obj()
+                if done == True:
+                    self.lad_show_currents() # lad_unregister_obj
+        elif button == 11: # button BASIC/PERF
             self.lad_perf_mode = not self.lad_perf_mode
             self.touch_send_midi_info(2, self.lad_perf_mode)
             self.lad_clear_saved_obj()
@@ -3725,27 +3701,19 @@ class LiveOSC:
                 self.lad_label_info_mode = 0
                 self.lad_set_mixer_gui() # switch perf
             self.lad_show_currents() # switch perf
-        elif button == 12: # button SET/RESET
-            if self.lad_perf_mode == False:
-                self.lad_register_obj(self.lad_current_group, True)
-            else:
-                done = self.lad_unregister_obj()
-                if done == True:
-                    self.lad_show_currents() # lad_unregister_obj
-        elif button == 13: # button REC
+        elif button == 12: # button REC
             if self.lad_perf_mode == True:
                 self.lad_preset_rec_active = not self.lad_preset_rec_active
                 self.lad_preset_rec_gui()
-        elif button == 14: # morph button
+        elif button == 13: # button MORPH
             self.lad_morph_fct()
+        elif button == 14:
+            self.lad_change_track(0)
         elif button == 15:
-            if self.lad_perf_mode == False:
-                self.lad_set_all()
-            else:
-                self.lad_clear_registered_obj(self.lad_current_group)
-
+            self.lad_change_device(0)
         elif button == 16:
-            self.lad_rand()
+            self.lad_change_page(0)
+
         elif button == 17 or button == 18: #lad_menu group
 
             if self.lad_perf_mode == True:
@@ -3757,7 +3725,6 @@ class LiveOSC:
                     self.lad_preset_rec_active = False
                     self.lad_preset_rec_gui()
 
-
             self.lad_current_group = button - 16 - 1
             self.lad_perf_page[self.lad_current_group] = 0 #lad_menu group
             self.lad_group_gui()
@@ -3765,8 +3732,7 @@ class LiveOSC:
             for i in range(PRESET_CNT):
                 self.lad_populate_label_preset(i)
 
-
-        else:
+        else: # presets
             self.lad_handle_preset_button(button)
 
         return
@@ -3822,7 +3788,7 @@ class LiveOSC:
 
 #    ## NAVIGATION ################################################################################################
     lad_device_page = 0
-    lad_auto_display = False
+    lad_show_display = False
     lad_perf_page = [0,0]
 
     def lad_change_track(self, mode):
@@ -4098,9 +4064,9 @@ class LiveOSC:
                         fd = fd - (self.lad_perf_page[self.lad_current_group] * self.FADER_CNT)
                         self.lad_update_fader_param(param, fd + 1) # match mixer perf
 
-        if self.lad_auto_display == True:
-            self.lad_auto_display = False
-            self.lad_update_auto_gui()
+        if self.lad_show_display == True:
+            self.lad_show_display = False
+            self.lad_update_show_gui()
             self.lad_saved_obj = param
 
 
@@ -4113,23 +4079,65 @@ class LiveOSC:
 
     def lad_get_param_relative_value(self, param, value):
 
-        init_value = self.adaptValue(param.value, param.min, param.max, 0, 1.0)
-        init_value = self.adaptValue(init_value + value, 0, 1.0, param.min, param.max)
 
-        if init_value < param.min:
-            init_value = param.min
-        elif init_value > param.max:
-            init_value = param.max
+        self.lad_log_device_param(param)
 
-        param.value = init_value
+        if value < 0:
+            if param.value == param.min:
+                return
+
+        if value > 0:
+            if param.value == param.max:
+                return
+
+        if param.is_quantized == True:
+            end_value = param.value
+            if value > 0:
+                end_value += 1
+            else:
+                end_value -= 1
+        else:
+
+            str_init = param.str_for_value(param.value)
+            init_value = self.adaptValue(param.value, param.min, param.max, 0, 1.0)
+
+
+            f_end_value = init_value + value
+            out = 0
+            occ = 0
+            while out != 1:
+
+                end_value = self.adaptValue(f_end_value, 0, 1.0, param.min, param.max)
+                str_end = param.str_for_value(end_value)
+
+                if str_end == str_init:
+                    f_end_value += value
+                else:
+                    out = 0
+                    break
+
+                occ += 1
+
+                if (occ >= 100) :
+                    end_value = param.value
+                    out = 1
+                    break
+
+        if end_value < param.min:
+            end_value = param.min
+        elif end_value > param.max:
+            end_value = param.max
+
+        param.value = end_value
 
 #    ## GET FROM FADERS ########################
     def lad_fader_input(self, fader, val, relative):
         if self.lad_perf_mode == False:
-            if self.lad_mixer:
-                self.lad_fader_mixer_input(fader, val, relative)
-            else:
+            if self.lad_mixer == False:
                 self.lad_faderd_basic_input(fader, val, relative)
+            else:
+                self.lad_fader_mixer_input(fader, val, relative)
+
         else:
             self.lad_fader_perf_input(fader, val, relative)
         return
@@ -4310,11 +4318,11 @@ class LiveOSC:
 
         return
 
-    def lad_auto_select_tr_dv(self, param):
+    def lad_show_select_tr_dv(self, param):
 
-        if self.lad_auto_display == True:
-            self.lad_auto_display = False
-            self.lad_update_auto_gui()
+        if self.lad_show_display == True:
+            self.lad_show_display = False
+            self.lad_update_show_gui()
             self.lad_saved_obj = param
 
             obj = param.canonical_parent
@@ -4343,7 +4351,7 @@ class LiveOSC:
                             self.xtouch_lower_encoder = False
                         else:
                             self.xtouch_lower_encoder = True
-                        self.lad_show_currents() #lad_auto_select_tr_dv
+                        self.lad_show_currents() #lad_show_select_tr_dv
 
     def lad_get_match_fader(self, param):
 
@@ -4351,18 +4359,20 @@ class LiveOSC:
         if param == None:
             return
 
+        self.lad_log_device_param(param)
+
         if self.lad_perf_mode == False:
             if self.lad_mixer == True:
                 return
 
-            self.lad_auto_select_tr_dv(param)
+            self.lad_show_select_tr_dv(param)
 
             fader = self.tuple_idx(self.lad_fader_params, param)
             if fader != -1:
                 self.lad_update_fader_param(param, fader+1) # match fader basic
         else:
 
-            self.lad_auto_select_tr_dv(param)
+            self.lad_show_select_tr_dv(param)
 
             fader = -1
             idx = self.tuple_idx(self.lad_matrix_registers_objs[self.lad_current_group], param)
@@ -4898,12 +4908,12 @@ class LiveOSC:
         else:
             self.oscEndpoint.send(address, 0)
 
-    def lad_update_auto_gui(self):
+    def lad_update_show_gui(self):
 
-        self.touch_send_midi_info(0, self.lad_auto_display)
+        self.touch_send_midi_info(0, self.lad_show_display)
 
-        address = "/lad/label_auto/color"
-        if self.lad_auto_display == True:
+        address = "/lad/label_show/color"
+        if self.lad_show_display == True:
             self.oscEndpoint.send(address, lad_hl_color)
         else:
             self.oscEndpoint.send(address, "gray")
@@ -5221,7 +5231,7 @@ class LiveOSC:
 
         if (self.lito_tab == LAD_TAB) or (self.lito_tab == UTIL_TAB):
             if mode == 0: # auto
-                self.send_midi_ex((0xB0, const.MIDI_LAD_AUTO, val), UTIL_TAB | LAD_TAB | MORPH_TAB)
+                self.send_midi_ex((0xB0, const.MIDI_LAD_SHOW, val), UTIL_TAB | LAD_TAB | MORPH_TAB)
             elif mode == 1: # mixer
                 self.send_midi_ex((0xB0, const.MIDI_LAD_MIXER_INFO, val), UTIL_TAB | LAD_TAB | MORPH_TAB)
             elif mode == 2: # perf
@@ -5242,7 +5252,6 @@ class LiveOSC:
         if text == "null":
             text = str(random.randint(1,65536))+str(random.randint(1,65536))
             track.set_data("LITO_TR_ID", text)
-        # mylog(track.name, text) # PERMANENT
         return
 
     def dgb_log(self, debug, *msgs):
@@ -5364,6 +5373,9 @@ class LiveOSC:
 
     def lad_save_param_cfg(self, export_only = False):
 
+        if len(self.lad_matrix_registers_objs) == 0:
+            return
+
         for g in range(GROUP_CNT):
             cfg_text = ""
             cfg_count = 0
@@ -5449,7 +5461,26 @@ class LiveOSC:
                     self.song().set_data(key, 'null')
         return
 
+#    ## LAD MISC ###########################################################################################
+    def lad_log_d(self, *msgs):
+        mylog(msgs) # PERMANENT
 
+    def lad_log_device_param(self, param):
+        if do_param_log == False:
+            return
+
+        self.lad_log_d("--")
+        device = param.canonical_parent
+        if device != None:
+            if not isinstance(device, Live.MixerDevice.MixerDevice):
+                self.lad_log_d(device.name, ",", device.class_name, ",", device.class_display_name)
+                self.lad_log_d(param.name, param.is_quantized, param.value, param.min, param.max)
+                if param.is_quantized == True:
+                    vals = []
+                    self.lad_log_d("param.value_items len", len(param.value_items))
+                    for val in param.value_items:
+                        vals.append(val)
+                    self.lad_log_d(vals)
 
 #    ################################################################################################
 #    ##  MORPH TAB
@@ -5514,7 +5545,7 @@ class LiveOSC:
         for i in self.lad_midi_buttons:
             self.send_midi_ex((0xB0, i, 0), UTIL_TAB | LAD_TAB | MORPH_TAB)
 
-        self.touch_send_midi_info(0, self.lad_auto_display)
+        self.touch_send_midi_info(0, self.lad_show_display)
         if self.lad_perf_mode == False:
             self.touch_send_midi_info(1, self.lad_mixer)
         else:
@@ -5569,8 +5600,6 @@ class LiveOSC:
         self.util_update_disable_osc_gui()
 
         self.util_debug = 0
-
-
 
         return
 
@@ -5658,6 +5687,7 @@ class LiveOSC:
         for i in range(GROUP_CNT):
             self.lad_clear_registered_obj(i)
         self.lad_load_param_live_cfg()
+        self.lad_show_currents()
 
         return
 
