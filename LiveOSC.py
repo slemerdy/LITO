@@ -3509,6 +3509,8 @@ class LiveOSC:
 
         self.lad_perf_mode = False
         self.touch_send_midi_info(2, self.lad_perf_mode)
+        self.lad_reset_mode = False
+        self.lad_reset_mode_gui()
         self.lad_label_info_mode = 0
         self.lad_device_page = 0
         for g in range(GROUP_CNT):
@@ -3558,6 +3560,8 @@ class LiveOSC:
         self.lad_perf_mode = False
         self.touch_send_midi_info(2, self.lad_perf_mode)
         self.lad_display_basic_perf_button()
+        self.lad_reset_mode = False
+        self.lad_reset_mode_gui()
         self.lad_clear_tr_dv_pg_cu(True,True,True,True)
         self.lad_preset_rec_active = False
         self.lad_morph = False
@@ -3689,23 +3693,28 @@ class LiveOSC:
             if self.lad_perf_mode == False:
                 self.lad_register_obj(self.lad_current_group, True)
             else:
-                done = self.lad_unregister_obj()
-                if done == True:
-                    self.lad_show_currents() # lad_unregister_obj
+                self.lad_reset_mode = not self.lad_reset_mode
+                self.lad_reset_mode_gui()
         elif button == 11: # button BASIC/PERF
             self.lad_perf_mode = not self.lad_perf_mode
             self.touch_send_midi_info(2, self.lad_perf_mode)
             self.lad_clear_saved_obj()
+            self.lad_reset_mode = False
+            self.lad_reset_mode_gui()
             self.lad_switch_perf_mode()
             if self.lad_perf_mode == False:
                 self.lad_label_info_mode = 0
                 self.lad_set_mixer_gui() # switch perf
             self.lad_show_currents() # switch perf
         elif button == 12: # button REC
+            self.lad_reset_mode = False
+            self.lad_reset_mode_gui()
             if self.lad_perf_mode == True:
                 self.lad_preset_rec_active = not self.lad_preset_rec_active
                 self.lad_preset_rec_gui()
         elif button == 13: # button MORPH
+            self.lad_reset_mode = False
+            self.lad_reset_mode_gui()
             self.lad_morph_fct()
         elif button == 14:
             self.lad_change_track(0)
@@ -4068,6 +4077,13 @@ class LiveOSC:
             self.lad_show_display = False
             self.lad_update_show_gui()
             self.lad_saved_obj = param
+        else:
+            if self.lad_reset_mode == True:
+                self.lad_reset_mode = False
+                self.lad_reset_mode_gui()
+                done = self.lad_unregister_obj()
+                if done == True:
+                    self.lad_show_currents() # lad_unregister_obj
 
 
 #    ## FADERS ###########################################################################################
@@ -4372,7 +4388,16 @@ class LiveOSC:
                 self.lad_update_fader_param(param, fader+1) # match fader basic
         else:
 
-            self.lad_show_select_tr_dv(param)
+            if self.lad_show_display == True:
+                self.lad_show_select_tr_dv(param)
+            else:
+                if self.lad_reset_mode == True:
+                    self.lad_reset_mode = False
+                    self.lad_reset_mode_gui()
+                    done = self.lad_unregister_obj()
+                    if done == True:
+                        self.lad_show_currents() # lad_unregister_obj
+
 
             fader = -1
             idx = self.tuple_idx(self.lad_matrix_registers_objs[self.lad_current_group], param)
@@ -4470,6 +4495,7 @@ class LiveOSC:
 
 #    ## PERF ################################################################################################
     lad_perf_mode = False
+    lad_reset_mode = False
 
     def lad_switch_perf_mode(self):
         self.lad_display_basic_perf_button()
@@ -5088,9 +5114,7 @@ class LiveOSC:
         
         self.lad_perf_active_mfader(self.lad_current_group) # lad_display_basic_perf_button
 
-        address = "/lad/label_set_reset/color"
-        self.oscEndpoint.send(address, "gray")
-        self.touch_send_midi_info(3, False)
+        self.lad_reset_mode_gui()
 #        address = "/lad/label_rec/color"
 #        self.oscEndpoint.send(address, "gray")
 #        self.touch_send_midi_info(4, False)
@@ -5175,7 +5199,6 @@ class LiveOSC:
             address = "/lad/label_set_all_clear"
             self.oscEndpoint.send(address, "CLEAR")
 
-
             for i in range(PRESET_CNT):
                 self.lad_populate_label_preset(i)
                 address = "/lad/label_p" + str(i+1) + "/color"
@@ -5220,6 +5243,16 @@ class LiveOSC:
         self.util_update_disable_osc_gui() # lad_update
 
         return
+
+    def lad_reset_mode_gui(self):
+        address = "/lad/label_set_reset/color"
+        if self.lad_reset_mode == False:
+            self.oscEndpoint.send(address, "gray")
+        else:
+            self.oscEndpoint.send(address, "yellow")
+        self.touch_send_midi_info(3, self.lad_reset_mode)
+
+
 
 #    ## LAD MIDI ###########################################################################################
 
