@@ -8,6 +8,7 @@ midi_relative_acceleration = 2.0
 
 # GENERAL
 MIDI_MODE = (9+64)
+MIDI_LOAD_CFG = (10+64)
 
 MIDI_UTIL_TAB_INDICATOR = (17+64)
 MIDI_LAD_TAB_INDICATOR = (18+64)

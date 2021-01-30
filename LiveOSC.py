@@ -122,13 +122,14 @@ class LiveOSC:
     tid = -1
     cid = -1
     loop_audio_clips_pitches = {}
+    lad_config_changed = False
 
 
     def __init__(self, c_instance):
         self._LiveOSC__c_instance = c_instance
 
-        mylog("----------------------------------------")
-        mylog("Starting LITO", datetime.now())
+        mylog("----------------------------------------") # PERMANENT
+        mylog("Starting LITO", datetime.now()) # PERMANENT
 
         self.basicAPI = 0       
         self.oscEndpoint = RemixNet.OSCEndpoint()
@@ -167,7 +168,7 @@ class LiveOSC:
         your build_midi_map function. For performance reasons this is only
         called once per GUI frame.
         """
-        #self._LiveOSC__c_instance.request_rebuild_midi_map()
+        self._LiveOSC__c_instance.request_rebuild_midi_map()
         return
     
     def update_display(self):
@@ -318,6 +319,9 @@ class LiveOSC:
                     self.touch_change_tab(LOOP_TAB)
                 else:
                     self.touch_change_tab(UTIL_TAB)
+
+        if (cc == const.MIDI_LOAD_CFG) and midi_bytes[2] == 0:
+            self.util_reload()
 
         if (self.lito_tab == LAD_TAB) or (self.lito_tab == UTIL_TAB) or (self.lito_tab == MORPH_TAB):
 
@@ -520,7 +524,9 @@ class LiveOSC:
 
     def disconnect(self):
 
+
         self.lad_save_param_cfg() # disconnect
+        self.lad_export_cfg() # disconnect
 
 #        self.rem_cclipSlot_listeners()
 #        self.rem_clipSlot_listeners()
@@ -548,12 +554,20 @@ class LiveOSC:
         self.oscEndpoint.shutdown()
         self.new_song = 1
 
-        mylog("Disconnecting")
-        mylog("----------------------------------------")
+        mylog("LITO Disconnecting") # PERMANENT
+        mylog("----------------------------------------") # PERMANENT
 
 
             
     def build_midi_map(self, midi_map_handle):
+
+        if self.lad_config_changed == True:
+            self.lad_config_changed = False
+            scene = self.song().scenes[0]
+            name = scene.name
+            scene.name = "LITO"
+            scene.name = name
+
 
         script_handle = self.handle()
         for channel in range(16):
@@ -594,6 +608,7 @@ class LiveOSC:
             self.lad_set_info("")
             self.lad_preset_rec_init_values()
             self.lad_load_param_live_cfg()
+            self.lad_export_cfg() # refresh_state (open file)
         else:
             self.lad_mixer_mode = 0
             self.lad_set_mixer_gui() # refresh_state
@@ -601,8 +616,6 @@ class LiveOSC:
 
         self.euc_update_status()
         self.touch_send_midi_info(7, self.oscEndpoint.get_disable_osc())
-        self.lad_save_param_cfg() # refresh_state
-
 
         return
 
@@ -3608,6 +3621,7 @@ class LiveOSC:
         self.lad_clear_registered_obj(self.lad_current_group)
         self.lad_load_param_cfg(self.lad_current_group, msg[2])
         self.lad_save_param_cfg() # load cb
+        self.lad_export_cfg() # load cb
         self.lad_show_currents() # load cb
         return
 
@@ -4081,6 +4095,7 @@ class LiveOSC:
             if self.lad_reset_mode == True:
                 self.lad_reset_mode = False
                 self.lad_reset_mode_gui()
+                self.lad_saved_obj = param
                 done = self.lad_unregister_obj()
                 if done == True:
                     self.lad_show_currents() # lad_unregister_obj
@@ -4394,6 +4409,7 @@ class LiveOSC:
                 if self.lad_reset_mode == True:
                     self.lad_reset_mode = False
                     self.lad_reset_mode_gui()
+                    self.lad_saved_obj = param
                     done = self.lad_unregister_obj()
                     if done == True:
                         self.lad_show_currents() # lad_unregister_obj
@@ -4451,7 +4467,7 @@ class LiveOSC:
     def lad_unregister_obj(self):
 
         if len(self.lad_matrix_registers_objs) != GROUP_CNT:
-            return
+            return False
 
         done = False
 
@@ -5287,42 +5303,41 @@ class LiveOSC:
             track.set_data("LITO_TR_ID", text)
         return
 
-    def dgb_log(self, debug, *msgs):
+    def dgb_log(self, *msgs):
+        debug = False
         if debug == True:
             mylog(msgs) # PERMANENT
         return
 
-    def lad_load_one_param_cfg(self, group, items, debug = False):
-
-        if debug == True:
-            self.dgb_log(debug, "----")
-            self.dgb_log(debug, items)
-
+    def lad_load_one_param_cfg(self, group, items):
+        self.dgb_log("-----------------------------------------------")
+        self.dgb_log("---- lad_load_one_param_cfg ----")
+        self.dgb_log(items)
 
         free_place = -1
         param = None
         tid = int(items[0])
-        self.dgb_log(debug, "tid", tid)
+        self.dgb_log("tid", tid)
         if tid >= 0:
-            self.dgb_log(debug, "tid not < 0")
+            self.dgb_log("tid not < 0")
 
             if tid < len(self.all_tracks):
-                self.dgb_log(debug, "tid valid")
+                self.dgb_log("tid valid")
 
                 track = self.all_tracks[tid]
                 if track != None:
-                    self.dgb_log(debug, "track not None")
+                    self.dgb_log("track not None")
 
                     id = track.get_data("LITO_TR_ID", "null")
-                    self.dgb_log(debug, "LITO_TR_ID", id)
+                    self.dgb_log("LITO_TR_ID", id)
                     if id != "null":
-                        self.dgb_log(debug, "track id not null")
-                        self.dgb_log(debug, "track id stored/live", items[3], id)
+                        self.dgb_log("track id not null")
+                        self.dgb_log("track id stored/live", items[3], id)
                         if id == items[3]:
-                            self.dgb_log(debug, "track id OK !")
+                            self.dgb_log("track id OK !")
 
                             did = int(items[1])
-                            self.dgb_log(debug, "did", did)
+                            self.dgb_log("did", did)
                             if did == -2:
                                 pid = int(items[2])
                                 param = None
@@ -5341,35 +5356,35 @@ class LiveOSC:
 
                             else:
                                 if did >= 0:
-                                    self.dgb_log(debug, "did not < 0")
+                                    self.dgb_log("did not < 0")
 
                                     if did < len(track.devices):
-                                        self.dgb_log(debug, "did valid")
+                                        self.dgb_log("did valid")
 
                                         dname = items[4]
                                         device = track.devices[did]
                                         if device != None:
-                                            self.dgb_log(debug, "device not None")
+                                            self.dgb_log("device not None")
 
-                                            self.dgb_log(debug, "device name stored/live", dname, device.name)
+                                            self.dgb_log("device name stored/live", dname, device.name)
                                             if dname == device.name:
-                                                self.dgb_log(debug, "device name OK !")
+                                                self.dgb_log("device name OK !")
 
                                                 pid = int(items[2])
-                                                self.dgb_log(debug, "pid", pid)
+                                                self.dgb_log("pid", pid)
                                                 if pid >= 0:
-                                                    self.dgb_log(debug, "pid not < 0")
+                                                    self.dgb_log("pid not < 0")
 
                                                     if pid < len(device.parameters):
-                                                        self.dgb_log(debug, "pid valid")
+                                                        self.dgb_log("pid valid")
 
                                                         pname = items[5]
                                                         param = device.parameters[pid]
                                                         if param!= None:
-                                                            self.dgb_log(debug, "param not None")
-                                                            self.dgb_log(debug, "param name stored/live", pname, param.name)
+                                                            self.dgb_log("param not None")
+                                                            self.dgb_log("param name stored/live", pname, param.name)
                                                             if pname == param.name:
-                                                                self.dgb_log(debug, "param name OK !")
+                                                                self.dgb_log("param name OK !")
 
                                                                 self.lad_saved_obj = param
                                                                 free_place = self.lad_register_obj(group, False)
@@ -5384,6 +5399,7 @@ class LiveOSC:
                         self.lad_matrix_presets[group][p][free_place] = val
             #param.value = saved_val
 
+        self.dgb_log("---- end of lad_load_one_param_cfg ----")
 
     def lad_load_param_cfg(self, group, cfg):
         cfgs = cfg.split("\n")
@@ -5392,7 +5408,7 @@ class LiveOSC:
             if len(items) == 13:
                 #myslog(str(cfgs[c])) # PERMANENT
                 if items[len(items)-1] == "end":
-                    self.lad_load_one_param_cfg(group, items, False)
+                    self.lad_load_one_param_cfg(group, items)
 
         return
 
@@ -5405,6 +5421,11 @@ class LiveOSC:
         return
 
     def lad_save_param_cfg(self, export_only = False):
+
+        self.dgb_log("-----------------------------------------------")
+        self.dgb_log("---- lad_save_param_cfg ----")
+
+        self.dgb_log("len(self.lad_matrix_registers_objs)", len(self.lad_matrix_registers_objs))
 
         if len(self.lad_matrix_registers_objs) == 0:
             return
@@ -5432,11 +5453,14 @@ class LiveOSC:
                         device = obj
                         obj = obj.canonical_parent
                         if obj != None:
+                            self.dgb_log("track not None")
                             track = obj
                             tname = track.get_data("LITO_TR_ID", 'null')
                             if tname != "null":
+                                self.dgb_log("tname not null")
                                 tid = self.tuple_idx(self.all_tracks, track)
                                 if tid != -1:
+                                    self.dgb_log("tid not -1")
                                     did = -1
                                     if isinstance(device, Live.MixerDevice.MixerDevice):
                                         did = -2 # mixer device ID is -2
@@ -5454,10 +5478,11 @@ class LiveOSC:
                                     else:
                                         did = self.tuple_idx(track.devices, device)
                                         if did != -1:
+                                            self.dgb_log("did not -1")
                                             pid = self.tuple_idx(device.parameters, param)
 
                                     if pid != -1:
-
+                                        self.dgb_log("pid not -1")
                                         cfg_text = cfg_text + str(tid) + "###"
                                         cfg_text = cfg_text + str(did) + "###"
                                         cfg_text = cfg_text + str(pid) + "###"
@@ -5477,11 +5502,14 @@ class LiveOSC:
                                         cfg_text = cfg_text + "end\n"
                                         cfg_count = cfg_count + 1
 
+            self.dgb_log(cfg_text)
 
             if cfg_text != "" :
                 if export_only == False:
                     key = "LITO_CFG_GRP" + str(g)
                     self.song().set_data(key, cfg_text)
+                    self.lad_config_changed = True
+                    self.request_rebuild_midi_map()
                 else:
                     text = "config count " + str(cfg_count) + "\n"
                     cfg_text = text + cfg_text
@@ -5492,7 +5520,31 @@ class LiveOSC:
                 else:
                     key = "LITO_CFG_GRP" + str(g)
                     self.song().set_data(key, 'null')
+                    self.lad_config_changed = True
+                    self.request_rebuild_midi_map()
+
+        self.dgb_log("---- end of lad_save_param_cfg ----")
         return
+
+    def lad_export_cfg(self):
+        tracks_txt = ""
+        for track in self.all_tracks:
+            tracks_txt = tracks_txt + track.name + " : " + track.get_data("LITO_TR_ID", 'null') + "\n"
+
+        myslog("\n---------------------------\nTracks list:\n" + str(tracks_txt)) # PERMANENT
+
+        self.lad_save_param_cfg(True)
+
+        for g in range(GROUP_CNT):
+            key = "LITO_CFG_GRP" + str(g)
+            cfg = self.song().get_data(key, "null")
+            if cfg != "null":
+                myslog("\n---------------------------\nStored configuration for group " + str(g) + "\n" + cfg) # PERMANENT
+            else:
+                myslog("\n---------------------------\nNo stored configuration for group " + str(g)) # PERMANENT
+
+
+
 
 #    ## LAD MISC ###########################################################################################
     def lad_log_d(self, *msgs):
@@ -5694,33 +5746,22 @@ class LiveOSC:
     def util_export_cb(self, msg, source):
         if msg[2] != 0:
             return
-        self.lad_save_param_cfg(True) #util_export_cb
 
-        for g in range(GROUP_CNT):
-            key = "LITO_CFG_GRP" + str(g)
-            cfg = self.song().get_data(key, "null")
-            if cfg != "null":
-                myslog("\n---------------------------\nStored configuration for group " + str(g) + "\n" + cfg) # PERMANENT
-            else:
-                myslog("\n---------------------------\nNo stored configuration for group " + str(g)) # PERMANENT
-
-
-        tracks_txt = ""
-        for track in self.all_tracks:
-            tracks_txt = tracks_txt + track.name + " : " + track.get_data("LITO_TR_ID", 'null') + "\n"
-
-        myslog("\n---------------------------\nTracks list:\n" + str(tracks_txt)) # PERMANENT
-
+        self.lad_export_cfg() # util_export_cb
         return
+
+    def util_reload(self):
+        for i in range(GROUP_CNT):
+            self.lad_clear_registered_obj(i)
+        self.lad_load_param_live_cfg()
+        self.lad_show_currents()
+        self.lad_export_cfg() # util_reload
 
     def util_load_cb(self, msg, source):
         if msg[2] != 0:
             return
 
-        for i in range(GROUP_CNT):
-            self.lad_clear_registered_obj(i)
-        self.lad_load_param_live_cfg()
-        self.lad_show_currents()
+        self.util_reload()
 
         return
 
