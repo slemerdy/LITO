@@ -3707,8 +3707,10 @@ class LiveOSC:
             if self.lad_perf_mode == False:
                 self.lad_register_obj(self.lad_current_group, True)
             else:
-                self.lad_reset_mode = not self.lad_reset_mode
-                self.lad_reset_mode_gui()
+                if self.lad_preset_rec_active == False:
+                    if self.lad_morph == False:
+                        self.lad_reset_mode = not self.lad_reset_mode
+                        self.lad_reset_mode_gui()
         elif button == 11: # button BASIC/PERF
             self.lad_perf_mode = not self.lad_perf_mode
             self.touch_send_midi_info(2, self.lad_perf_mode)
