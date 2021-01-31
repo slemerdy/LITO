@@ -1,5 +1,9 @@
 # This Python file uses the following encoding: utf-8
 
+# MISC
+LOG_USE_STDERR_ON_WINDOWS = False
+
+# MIDI
 midi_channel = 0
 midi_relative = False
 midi_relative_mode = 2

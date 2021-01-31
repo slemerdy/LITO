@@ -361,8 +361,11 @@ class LiveOSC:
                     self.lad_update_faders() # midi lower
                 else:
                     idx =  self.lad_midi_buttons.index(cc)
-                    self.lad_menu(idx+1)
-
+                    if cc == const.MIDI_LAD_ARM:
+                        if self.lad_perf_mode == False:
+                            self.lad_menu(idx+1)
+                    else:
+                        self.lad_menu(idx+1)
 
         elif self.lito_tab == EUC_TAB:
 
@@ -3524,6 +3527,9 @@ class LiveOSC:
         self.touch_send_midi_info(2, self.lad_perf_mode)
         self.lad_reset_mode = False
         self.lad_reset_mode_gui()
+        self.lad_edit_preset = -1
+        self.lad_edit_preset_mode = False
+        self.lad_edit_preset_mode_gui()
         self.lad_label_info_mode = 0
         self.lad_device_page = 0
         for g in range(GROUP_CNT):
@@ -3575,6 +3581,9 @@ class LiveOSC:
         self.lad_display_basic_perf_button()
         self.lad_reset_mode = False
         self.lad_reset_mode_gui()
+        self.lad_edit_preset = -1
+        self.lad_edit_preset_mode = False
+        self.lad_edit_preset_mode_gui()
         self.lad_clear_tr_dv_pg_cu(True,True,True,True)
         self.lad_preset_rec_active = False
         self.lad_morph = False
@@ -3615,6 +3624,7 @@ class LiveOSC:
         self.oscEndpoint.callbackManager.group_add("/lad/faderd", self.lad_faderd_cb)
         self.oscEndpoint.callbackManager.group_add("/lad/faderm", self.lad_faderm_cb)
         self.oscEndpoint.callbackManager.add("/lad/cfg", self.lad_cfg_cb)
+        self.oscEndpoint.callbackManager.group_add("/lad/toggled", self.lad_toggled_cb)
         return
 
     def lad_cfg_cb(self, msg, source):
@@ -3641,6 +3651,22 @@ class LiveOSC:
 
         if button != -1:
             self.lad_menu(button)
+        return
+
+    def lad_toggled_cb(self, msg, source):
+
+        fader = 0
+        root_add = "/lad/toggled"
+        le = len(root_add)
+        address = str(msg[0])
+
+        text = address[le:]
+        fader = int(text)
+        val = msg[2]
+
+        if fader != 0:
+            self.lad_preset_enable_param(fader-1, int(val))
+
         return
 
     def lad_faderd_cb(self, msg, source):
@@ -3682,14 +3708,28 @@ class LiveOSC:
             if self.lad_perf_mode == False:
                 self.lad_set_all()
             else:
-                self.lad_clear_registered_obj(self.lad_current_group)
+                if self.lad_preset_rec_active == False:
+                    if self.lad_morph == False:
+                        if self.lad_reset_mode == False:
+                            if self.lad_edit_preset_mode == False:
+                                self.lad_clear_registered_obj(self.lad_current_group)
             self.lad_show_currents()
         elif button == 2: # mixer
             self.lad_handle_mixer_button()
         elif button == 3:
-            tid = self.get_working_midi_track()
-            if tid != -1:
-                LiveUtils.toggleArmTrack(tid)
+            if self.lad_perf_mode == False:
+                tid = self.get_working_midi_track()
+                if tid != -1:
+                    LiveUtils.toggleArmTrack(tid)
+            else:
+                if self.lad_preset_rec_active == False:
+                    if self.lad_morph == False:
+                        if self.lad_reset_mode == False:
+                            self.lad_set_info("")
+                            self.lad_edit_preset = -1
+                            self.lad_edit_preset_mode = not self.lad_edit_preset_mode
+                            self.lad_edit_preset_mode_gui()
+
         elif button == 4:
             LiveUtils.getSong().overdub = not LiveUtils.getSong().overdub
         elif button == 5:
@@ -3709,29 +3749,30 @@ class LiveOSC:
             else:
                 if self.lad_preset_rec_active == False:
                     if self.lad_morph == False:
-                        self.lad_reset_mode = not self.lad_reset_mode
-                        self.lad_reset_mode_gui()
+                        if self.lad_edit_preset_mode == False:
+                            self.lad_reset_mode = not self.lad_reset_mode
+                            self.lad_reset_mode_gui()
         elif button == 11: # button BASIC/PERF
             self.lad_perf_mode = not self.lad_perf_mode
             self.touch_send_midi_info(2, self.lad_perf_mode)
-            self.lad_clear_saved_obj()
-            self.lad_reset_mode = False
-            self.lad_reset_mode_gui()
             self.lad_switch_perf_mode()
             if self.lad_perf_mode == False:
                 self.lad_label_info_mode = 0
                 self.lad_set_mixer_gui() # switch perf
             self.lad_show_currents() # switch perf
         elif button == 12: # button REC
-            self.lad_reset_mode = False
-            self.lad_reset_mode_gui()
             if self.lad_perf_mode == True:
-                self.lad_preset_rec_active = not self.lad_preset_rec_active
-                self.lad_preset_rec_gui()
+                if self.lad_reset_mode == False:
+                    if self.lad_morph == False:
+                        if self.lad_edit_preset_mode == False:
+                            self.lad_preset_rec_active = not self.lad_preset_rec_active
+                            self.lad_preset_rec_gui()
         elif button == 13: # button MORPH
-            self.lad_reset_mode = False
-            self.lad_reset_mode_gui()
-            self.lad_morph_fct()
+            if self.lad_perf_mode == True:
+                if self.lad_reset_mode == False:
+                    if self.lad_edit_preset_mode == False:
+                        if self.lad_preset_rec_active == False:
+                            self.lad_morph_fct()
         elif button == 14:
             self.lad_change_track(0)
         elif button == 15:
@@ -3740,22 +3781,23 @@ class LiveOSC:
             self.lad_change_page(0)
 
         elif button == 17 or button == 18: #lad_menu group
-
+            do_it = False
             if self.lad_perf_mode == True:
-                if self.lad_morph == True:
-                    self.lad_morph = False
-                    self.lad_morph_prep = 0
-                    self.lad_preset_morph_gui()
-                if self.lad_preset_rec_active == True:
-                    self.lad_preset_rec_active = False
-                    self.lad_preset_rec_gui()
+                if self.lad_reset_mode == False:
+                    if self.lad_edit_preset_mode == False:
+                        if self.lad_preset_rec_active == False:
+                            if self.lad_morph == False:
+                                do_it = True
+            else:
+                do_it = True
 
-            self.lad_current_group = button - 16 - 1
-            self.lad_perf_page[self.lad_current_group] = 0 #lad_menu group
-            self.lad_group_gui()
-            self.lad_show_currents() #lad_menu group
-            for i in range(PRESET_CNT):
-                self.lad_populate_label_preset(i)
+            if do_it == True:
+                self.lad_current_group = button - 16 - 1
+                self.lad_perf_page[self.lad_current_group] = 0 #lad_menu group
+                self.lad_group_gui()
+                self.lad_show_currents() #lad_menu group
+                for i in range(PRESET_CNT):
+                    self.lad_populate_label_preset(i)
 
         else: # presets
             self.lad_handle_preset_button(button)
@@ -3801,6 +3843,11 @@ class LiveOSC:
 
                     self.lad_morph = False
                     self.lad_preset_morph_gui()
+            elif self.lad_edit_preset_mode == True:
+                self.lad_edit_preset = preset
+                self.lad_set_info("edit preset: " + str(preset+1))
+                for f in range(self.FADER_CNT):
+                    self.lad_preset_toggle_param_button(self.lad_edit_preset, f)
             else:
                 if self.lad_preset_rec_active == True:
                     self.lad_preset_rec_values(preset)
@@ -4297,6 +4344,9 @@ class LiveOSC:
         address_label = address_label + "/color"
         address_labelb = address_labelb + "/color"
 
+        if self.lad_edit_preset_mode == True:
+            self.lad_preset_toggle_param_button(self.lad_edit_preset, fader - 1)
+
 
         if self.xtouch_lower_encoder == False:
             if fader < 9:
@@ -4516,13 +4566,23 @@ class LiveOSC:
     lad_reset_mode = False
 
     def lad_switch_perf_mode(self):
-        self.lad_display_basic_perf_button()
+        self.lad_clear_saved_obj()
+
         self.lad_preset_rec_active = False
-
-        self.lad_morph_prep = 0
-
         self.lad_preset_rec_gui()
+
+        self.lad_edit_preset = -1
+        self.lad_edit_preset_mode = False
+        self.lad_edit_preset_mode_gui()
+
+        self.lad_reset_mode = False
+        self.lad_reset_mode_gui()
+
+        self.lad_morph = False
+        self.lad_morph_prep = 0
         self.lad_preset_morph_gui()
+
+        self.lad_display_basic_perf_button()
 
         self.lad_set_info("")
 
@@ -4540,7 +4600,8 @@ class LiveOSC:
             self.oscEndpoint.send(address, color)
 
 #    ## PRESET ################################################################################################
-
+    lad_edit_preset_mode = False
+    lad_edit_preset = -1
     lad_preset_rec_active = False
 
     lad_matrix_registers_objs = []
@@ -4730,6 +4791,83 @@ class LiveOSC:
 
         return
 
+    def lad_preset_toggle_param_button(self, preset, fader):
+
+        valid = False
+        param = None
+        value = 0.0
+
+        if self.lad_edit_preset_mode == True and self.lad_edit_preset != -1:
+            if self.lad_current_group >= 0:
+                if self.lad_current_group < GROUP_CNT:
+
+                    g = self.lad_current_group
+                    p = preset
+                    page = self.lad_perf_page[g]
+
+                    if (fader + page*self.FADER_CNT) < len(self.lad_matrix_registers_objs[g]):
+
+                        f = fader + page*self.FADER_CNT
+
+                        param = self.lad_matrix_registers_objs[g][f]
+                        valid = self.lad_matrix_presets_valid[g][p][f]
+                        value = self.lad_matrix_presets[g][p][f]
+
+        address = "/lad/toggled" + str(fader + 1)
+        if valid == True:
+            self.oscEndpoint.send(address, 1.0)
+        else:
+            self.oscEndpoint.send(address, 0.0)
+
+
+    def lad_edit_preset_mode_gui(self):
+        address = "/lad/label_arm/color"
+
+        if self.lad_edit_preset_mode == False:
+            self.oscEndpoint.send(address, "gray")
+            for i in range(self.FADER_CNT):
+                addressfd = "/lad/faderd" + str(i+1) + "/visible"
+                self.oscEndpoint.send(addressfd, "True")
+        else:
+            self.oscEndpoint.send(address, lad_hl_color)
+            for i in range(self.FADER_CNT):
+                addressfd = "/lad/faderd" + str(i+1) + "/visible"
+                self.oscEndpoint.send(addressfd, "False")
+                addresstd = "/lad/toggled" + str(i + 1)
+                self.oscEndpoint.send(addresstd, 0.0)
+
+    def lad_preset_enable_param(self, fader, val):
+
+        if self.lad_edit_preset_mode == True:
+            if self.lad_current_group >= 0:
+                if self.lad_current_group < GROUP_CNT:
+                    preset = self.lad_edit_preset
+                    if preset != -1:
+                        if (fader + self.lad_perf_page[self.lad_current_group]*self.FADER_CNT) < len(self.lad_matrix_registers_objs[self.lad_current_group]):
+
+                            g = self.lad_current_group
+                            p = preset
+                            page = self.lad_perf_page[g]
+
+                            if (fader + page*self.FADER_CNT) < len(self.lad_matrix_registers_objs[g]):
+
+                                f = fader + page*self.FADER_CNT
+                                param = self.lad_matrix_registers_objs[g][f]
+
+                                if param != None:
+                                    valid = self.lad_matrix_presets_valid[g][p][f]
+                                    valid = not valid
+                                    self.lad_matrix_presets_valid[g][p][f] = valid
+                                    self.lad_matrix_presets[g][p][f] = self.adaptValue(param.value, param.min, param.max, 0.0, 1.0)
+                                    self.lad_save_param_cfg() # lad_preset_enable_param
+
+                                    addresstd = "/lad/toggled" + str(fader + 1)
+                                    if valid == True:
+                                        self.oscEndpoint.send(addresstd, 1.0)
+                                    else:
+                                        self.oscEndpoint.send(addresstd, 0.0)
+
+        return
 
 #    ## MORPH ################################################################################################
     lad_morph = False
@@ -4849,6 +4987,9 @@ class LiveOSC:
 
     def lad_update_faders_perf(self):
 
+        if self.lad_perf_mode == False:
+            return
+
         if len(self.lad_matrix_registers_objs) != GROUP_CNT:
             return
 
@@ -4858,6 +4999,7 @@ class LiveOSC:
                 param = self.lad_matrix_registers_objs[self.lad_current_group][i + self.lad_perf_page[self.lad_current_group]*self.FADER_CNT]
 
             self.lad_update_fader_param(param, i+1) #perf
+
 
 
         return
@@ -5142,8 +5284,13 @@ class LiveOSC:
 
         if self.lad_perf_mode == False:
 
-            self.touch_send_midi_info(1, self.lad_mixer)
+            address = "/lad/label_arm"
+            self.oscEndpoint.send(address, "ARM")
 
+            address = "/lad/label_arm/color"
+            self.oscEndpoint.send(address, "red")
+
+            self.touch_send_midi_info(1, self.lad_mixer)
             address = "/lad/label_mixer"
             self.oscEndpoint.send(address, "MIXER")
 
@@ -5180,6 +5327,12 @@ class LiveOSC:
 
 
         else:
+
+            address = "/lad/label_arm"
+            self.oscEndpoint.send(address, "EDIT PRESET")
+
+            address = "/lad/label_arm/color"
+            self.oscEndpoint.send(address, "gray")
 
             self.touch_send_midi_info(1, False)
 

@@ -5,8 +5,9 @@ from inspect import currentframe
 import ntpath
 import traceback
 from os.path import expanduser
+import platform
+import const
 
-LOG_USE_STDERR = True
 
 try:
     import socket
@@ -98,21 +99,23 @@ def mydlog(*msgs):
 
 def myslog(message, li = -1):
 
-    #li = currentframe().f_back.f_lineno
-
     if li != -1:
         text = str(li) + ":" + message.encode("utf-8")
     else:
         text = message.encode("utf-8")
 
-    if LOG_USE_STDERR == True:
-        sys.stderr.write(text)
+    if platform.system() == "Windows":
+        if const.LOG_USE_STDERR_ON_WINDOWS == True:
+            sys.stderr.write(text)
+        else:
+            home = expanduser("~")
+            filename = home + "\\LITO.txt"
+            lfile = open(filename, 'a')
+            lfile.write(text + "\n")
+            lfile.close()
     else:
-        home = expanduser("~")
-        filename = home + "\\LITO.txt"
-        lfile = open(filename, 'a')
-        lfile.write(text + "\n")
-        lfile.close()
+        sys.stderr.write(text)
+
 
 def myelog(message):
 
