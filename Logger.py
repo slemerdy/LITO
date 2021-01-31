@@ -6,7 +6,7 @@ import ntpath
 import traceback
 from os.path import expanduser
 
-LOG_USE_STDERR = False
+LOG_USE_STDERR = True
 
 try:
     import socket
