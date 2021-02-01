@@ -361,11 +361,7 @@ class LiveOSC:
                     self.lad_update_faders() # midi lower
                 else:
                     idx =  self.lad_midi_buttons.index(cc)
-                    if cc == const.MIDI_LAD_ARM:
-                        if self.lad_perf_mode == False:
-                            self.lad_menu(idx+1)
-                    else:
-                        self.lad_menu(idx+1)
+                    self.lad_menu(idx+1)
 
         elif self.lito_tab == EUC_TAB:
 
@@ -3527,18 +3523,16 @@ class LiveOSC:
         self.touch_send_midi_info(2, self.lad_perf_mode)
         self.lad_reset_mode = False
         self.lad_reset_mode_gui()
-        self.lad_edit_preset = -1
-        self.lad_edit_preset_mode = False
-        self.lad_edit_preset_mode_gui()
         self.lad_label_info_mode = 0
         self.lad_device_page = 0
         for g in range(GROUP_CNT):
             self.lad_perf_page[g] = 0 #init
 
+        self.lad_called_preset = -1
         self.lad_preset_rec_active = False
+        self.lad_preset_rec_gui()
         self.lad_morph = False
         self.lad_morph_prep = 0
-        self.lad_preset_rec_gui()
         self.lad_preset_morph_gui()
 
         self.lad_mixer = False
@@ -3581,14 +3575,12 @@ class LiveOSC:
         self.lad_display_basic_perf_button()
         self.lad_reset_mode = False
         self.lad_reset_mode_gui()
-        self.lad_edit_preset = -1
-        self.lad_edit_preset_mode = False
-        self.lad_edit_preset_mode_gui()
         self.lad_clear_tr_dv_pg_cu(True,True,True,True)
+        self.lad_called_preset = -1
         self.lad_preset_rec_active = False
+        self.lad_preset_rec_gui()
         self.lad_morph = False
         self.lad_morph_prep = 0
-        self.lad_preset_rec_gui()
         self.lad_preset_morph_gui()
 
         for i in range(self.FADER_CNT):
@@ -3655,17 +3647,17 @@ class LiveOSC:
 
     def lad_toggled_cb(self, msg, source):
 
-        fader = 0
+        button = 0
         root_add = "/lad/toggled"
         le = len(root_add)
         address = str(msg[0])
 
         text = address[le:]
-        fader = int(text)
+        button = int(text)
         val = msg[2]
 
-        if fader != 0:
-            self.lad_preset_enable_param(fader-1, int(val))
+        if button != 0:
+            self.lad_preset_enable_param(button-1)
 
         return
 
@@ -3711,9 +3703,9 @@ class LiveOSC:
                 if self.lad_preset_rec_active == False:
                     if self.lad_morph == False:
                         if self.lad_reset_mode == False:
-                            if self.lad_edit_preset_mode == False:
-                                self.lad_clear_registered_obj(self.lad_current_group)
-            self.lad_show_currents()
+                            self.lad_called_preset = -1
+                            self.lad_clear_registered_obj(self.lad_current_group)
+            self.lad_show_currents() # Button 1
         elif button == 2: # mixer
             self.lad_handle_mixer_button()
         elif button == 3:
@@ -3721,23 +3713,17 @@ class LiveOSC:
                 tid = self.get_working_midi_track()
                 if tid != -1:
                     LiveUtils.toggleArmTrack(tid)
-            else:
-                if self.lad_preset_rec_active == False:
-                    if self.lad_morph == False:
-                        if self.lad_reset_mode == False:
-                            self.lad_set_info("")
-                            self.lad_edit_preset = -1
-                            self.lad_edit_preset_mode = not self.lad_edit_preset_mode
-                            self.lad_edit_preset_mode_gui()
-
         elif button == 4:
-            LiveUtils.getSong().overdub = not LiveUtils.getSong().overdub
+            if self.lad_perf_mode == False:
+                LiveUtils.getSong().overdub = not LiveUtils.getSong().overdub
         elif button == 5:
             self.lad_rand()
         elif button == 6:
-            self.lad_change_track(1)
+            if self.lad_perf_mode == False:
+                self.lad_change_track(1)
         elif button == 7:
-            self.lad_change_device(1)
+            if self.lad_perf_mode == False:
+                self.lad_change_device(1)
         elif button == 8:
             self.lad_change_page(1)
         elif button == 9:
@@ -3749,9 +3735,9 @@ class LiveOSC:
             else:
                 if self.lad_preset_rec_active == False:
                     if self.lad_morph == False:
-                        if self.lad_edit_preset_mode == False:
-                            self.lad_reset_mode = not self.lad_reset_mode
-                            self.lad_reset_mode_gui()
+                        self.lad_called_preset = -1
+                        self.lad_reset_mode = not self.lad_reset_mode
+                        self.lad_reset_mode_gui()
         elif button == 11: # button BASIC/PERF
             self.lad_perf_mode = not self.lad_perf_mode
             self.touch_send_midi_info(2, self.lad_perf_mode)
@@ -3764,19 +3750,42 @@ class LiveOSC:
             if self.lad_perf_mode == True:
                 if self.lad_reset_mode == False:
                     if self.lad_morph == False:
-                        if self.lad_edit_preset_mode == False:
-                            self.lad_preset_rec_active = not self.lad_preset_rec_active
-                            self.lad_preset_rec_gui()
+                        self.lad_called_preset = -1
+                        self.lad_preset_rec_active = not self.lad_preset_rec_active
+                        self.lad_preset_rec_gui()
+                        self.lad_rec_buttons_state = []
+                        if self.lad_preset_rec_active == True:
+
+                            g = self.lad_current_group
+                            for i in range(len(self.lad_matrix_registers_objs[g])):
+                                self.lad_rec_buttons_state.append(True)
+
+                            for i in range(self.FADER_CNT):
+                                self.lad_preset_toggle_param_button(i)
+
+                        self.lad_show_currents() # button REC
+
         elif button == 13: # button MORPH
             if self.lad_perf_mode == True:
                 if self.lad_reset_mode == False:
-                    if self.lad_edit_preset_mode == False:
-                        if self.lad_preset_rec_active == False:
-                            self.lad_morph_fct()
+                    if self.lad_preset_rec_active == False:
+                        self.lad_morph_fct()
+                        self.lad_show_currents() # button MORPH
+
         elif button == 14:
-            self.lad_change_track(0)
+            if self.lad_perf_mode == False:
+                self.lad_change_track(0)
+            else:
+                if self.lad_preset_rec_active == True:
+                    self.lad_preset_set_all_params()
+
         elif button == 15:
-            self.lad_change_device(0)
+            if self.lad_perf_mode == False:
+                self.lad_change_device(0)
+            else:
+                if self.lad_preset_rec_active == True:
+                    self.lad_preset_invert_params()
+
         elif button == 16:
             self.lad_change_page(0)
 
@@ -3784,10 +3793,9 @@ class LiveOSC:
             do_it = False
             if self.lad_perf_mode == True:
                 if self.lad_reset_mode == False:
-                    if self.lad_edit_preset_mode == False:
-                        if self.lad_preset_rec_active == False:
-                            if self.lad_morph == False:
-                                do_it = True
+                    if self.lad_preset_rec_active == False:
+                        if self.lad_morph == False:
+                            do_it = True
             else:
                 do_it = True
 
@@ -3795,7 +3803,7 @@ class LiveOSC:
                 self.lad_current_group = button - 16 - 1
                 self.lad_perf_page[self.lad_current_group] = 0 #lad_menu group
                 self.lad_group_gui()
-                self.lad_show_currents() #lad_menu group
+                self.lad_show_currents() # lad_menu group
                 for i in range(PRESET_CNT):
                     self.lad_populate_label_preset(i)
 
@@ -3843,18 +3851,15 @@ class LiveOSC:
 
                     self.lad_morph = False
                     self.lad_preset_morph_gui()
-            elif self.lad_edit_preset_mode == True:
-                self.lad_edit_preset = preset
-                self.lad_set_info("edit preset: " + str(preset+1))
-                for f in range(self.FADER_CNT):
-                    self.lad_preset_toggle_param_button(self.lad_edit_preset, f)
+
+            elif self.lad_preset_rec_active == True:
+                self.lad_preset_rec_values(preset)
+                self.lad_preset_rec_active = False
+                self.lad_preset_rec_gui()
+                self.lad_show_currents() # rec finish
+
             else:
-                if self.lad_preset_rec_active == True:
-                    self.lad_preset_rec_values(preset)
-                    self.lad_preset_rec_active = False
-                    self.lad_preset_rec_gui()
-                else:
-                    self.lad_preset_recall(preset)
+                self.lad_preset_recall(preset)
 
         return
 
@@ -3864,6 +3869,9 @@ class LiveOSC:
     lad_perf_page = [0,0]
 
     def lad_change_track(self, mode):
+
+        if self.lad_perf_mode == True:
+            return
 
         self.lad_clear_saved_obj()
 		
@@ -3895,6 +3903,9 @@ class LiveOSC:
         return
 
     def lad_change_device(self, mode):
+
+        if self.lad_perf_mode == True:
+            return
 
         self.lad_clear_saved_obj()
 
@@ -4335,6 +4346,17 @@ class LiveOSC:
                     idx = self.tuple_idx(self.lad_matrix_registers_objs[self.lad_current_group], param)
                     if idx != -1:
                         color = lad_hl_color2
+            else:
+                if self.lad_called_preset != -1:
+                    if self.lad_current_group >= 0:
+                        if self.lad_current_group < GROUP_CNT:
+                            g = self.lad_current_group
+                            p = self.lad_called_preset
+                            if len(self.lad_matrix_registers_objs[g]) != 0:
+                                if param in self.lad_matrix_registers_objs[g]:
+                                    idx = self.lad_matrix_registers_objs[g].index(param)
+                                    if self.lad_matrix_presets_valid[g][p][idx] == True:
+                                        color = lad_hl_color2
 
         self.oscEndpoint.send(address_label, str(label))
         self.oscEndpoint.send(address_fader, value)
@@ -4344,9 +4366,8 @@ class LiveOSC:
         address_label = address_label + "/color"
         address_labelb = address_labelb + "/color"
 
-        if self.lad_edit_preset_mode == True:
-            self.lad_preset_toggle_param_button(self.lad_edit_preset, fader - 1)
-
+        if self.lad_preset_rec_active == True:
+            self.lad_preset_toggle_param_button(fader - 1)
 
         if self.xtouch_lower_encoder == False:
             if fader < 9:
@@ -4434,7 +4455,7 @@ class LiveOSC:
                             self.xtouch_lower_encoder = False
                         else:
                             self.xtouch_lower_encoder = True
-                        self.lad_show_currents() #lad_show_select_tr_dv
+                        self.lad_show_currents() # lad_show_select_tr_dv
 
     def lad_get_match_fader(self, param):
 
@@ -4547,7 +4568,14 @@ class LiveOSC:
         self.lad_preset_rec_init_values_group(group)
 
     def lad_set_all(self):
-        mylog("lad_set_all: registered before (group", self.lad_current_group, ") =>", len(self.lad_matrix_registers_objs[self.lad_current_group])) # PERMANENT
+
+        if self.lad_perf_mode == True:
+            return
+
+        if self.lad_mixer_mode == True:
+            return
+
+        #mylog("lad_set_all: registered before (group", self.lad_current_group, ") =>", len(self.lad_matrix_registers_objs[self.lad_current_group])) # PERMANENT
         track = self.song().view.selected_track
         if track != None:
             device =  track.view.selected_device
@@ -4558,7 +4586,7 @@ class LiveOSC:
                         self.lad_saved_obj = param
                         self.lad_register_obj(self.lad_current_group, True)
                     i = i + 1
-        mylog("lad_set_all: registered after (group", self.lad_current_group, ") =>", len(self.lad_matrix_registers_objs[self.lad_current_group])) # PERMANENT
+        #mylog("lad_set_all: registered after (group", self.lad_current_group, ") =>", len(self.lad_matrix_registers_objs[self.lad_current_group])) # PERMANENT
 
 
 #    ## PERF ################################################################################################
@@ -4568,12 +4596,10 @@ class LiveOSC:
     def lad_switch_perf_mode(self):
         self.lad_clear_saved_obj()
 
+        self.lad_called_preset = -1
+
         self.lad_preset_rec_active = False
         self.lad_preset_rec_gui()
-
-        self.lad_edit_preset = -1
-        self.lad_edit_preset_mode = False
-        self.lad_edit_preset_mode_gui()
 
         self.lad_reset_mode = False
         self.lad_reset_mode_gui()
@@ -4600,14 +4626,15 @@ class LiveOSC:
             self.oscEndpoint.send(address, color)
 
 #    ## PRESET ################################################################################################
-    lad_edit_preset_mode = False
-    lad_edit_preset = -1
+    lad_called_preset = -1
     lad_preset_rec_active = False
 
     lad_matrix_registers_objs = []
     lad_matrix_presets_valid = []
     lad_matrix_presets = []
     lad_matrix_morph_presets = []
+
+    lad_rec_buttons_state = []
 
     def lad_update_matrix(self):
 
@@ -4657,24 +4684,29 @@ class LiveOSC:
 
     def lad_preset_rec_gui(self):
 
-        if self.lad_perf_mode == False:
-            return
-
-        if self.lad_morph == True:
-            return
-
         color = "gray"
         if self.lad_preset_rec_active == True:
             self.lad_set_info("")
-            self.lad_preset_gui(-1, 1)
+            for i in range(1,PRESET_CNT+1):
+                self.lad_preset_gui(i, 1)
             color = lad_hl_color
         else:
-            self.lad_preset_gui(-1, 0)
+            for i in range(1,PRESET_CNT+1):
+                self.lad_preset_gui(i, 0)
 
 
         address = "/lad/label_rec/color"
         self.oscEndpoint.send(address, color)
         self.touch_send_midi_info(4, self.lad_preset_rec_active)
+
+        address = "/lad/label_trm/color"
+        self.oscEndpoint.send(address, color)
+
+        address = "/lad/label_dvm/color"
+        self.oscEndpoint.send(address, color)
+
+        self.lad_edit_preset_mode_gui()
+
         return
 
 
@@ -4684,13 +4716,8 @@ class LiveOSC:
         elif mode == 1:
             color = lad_hl_color
 
-        if button == -1:
-            for i in range(1,PRESET_CNT+1):
-                address = "/lad/label_p" + str(i) + "/color"
-                self.oscEndpoint.send(address, color)
-        else:
-            address = "/lad/label_p" + str(button) + "/color"
-            self.oscEndpoint.send(address, color)
+        address = "/lad/label_p" + str(button) + "/color"
+        self.oscEndpoint.send(address, color)
 
         return
 
@@ -4733,7 +4760,6 @@ class LiveOSC:
         if len(self.lad_matrix_registers_objs) != GROUP_CNT:
             return
 
-
         if self.lad_perf_mode == False:
             return
 
@@ -4748,7 +4774,10 @@ class LiveOSC:
                 self.lad_matrix_presets[self.lad_current_group][preset] = []
                 for i in range(len(self.lad_matrix_registers_objs[self.lad_current_group])):
                     if self.lad_matrix_registers_objs[self.lad_current_group][i] != None:
-                        self.lad_matrix_presets_valid[self.lad_current_group][preset].append(True)
+                        valid = True
+                        if i < len(self.lad_rec_buttons_state):
+                            valid = self.lad_rec_buttons_state[i]
+                        self.lad_matrix_presets_valid[self.lad_current_group][preset].append(valid)
                         param = self.lad_matrix_registers_objs[self.lad_current_group][i]
                         self.lad_matrix_presets[self.lad_current_group][preset].append(self.adaptValue(param.value, param.min, param.max, 0.0, 1.0))
                         done = True
@@ -4756,12 +4785,9 @@ class LiveOSC:
                 self.lad_populate_label_preset(preset)
                 if done == True:
                     self.lad_set_info("preset " + str(preset+1) + " recorded")
+                    self.lad_called_preset = preset
                     self.lad_save_param_cfg() # lad_preset_rec_values
 
-
-            return
-
-        return
 
     def lad_preset_recall(self, preset):
 
@@ -4774,46 +4800,43 @@ class LiveOSC:
         if self.lad_morph == True:
             return
 
-        if self.lad_preset_rec_active == False:
-            if preset >= 0 and preset < PRESET_CNT:
-                display = False
+        if self.lad_preset_rec_active == True:
+            return
 
-                for i in range(len(self.lad_matrix_registers_objs[self.lad_current_group])):
-                    if i < len(self.lad_matrix_presets_valid[self.lad_current_group][preset]):
-                        if self.lad_matrix_presets_valid[self.lad_current_group][preset][i] == True:
-                            if self.lad_matrix_registers_objs[self.lad_current_group][i] != None:
-                                param = self.lad_matrix_registers_objs[self.lad_current_group][i]
-                                param.value = self.adaptValue(self.lad_matrix_presets[self.lad_current_group][preset][i], 0.0, 1.0, param.min, param.max)
-                                display = True
+        self.lad_set_info("")
 
-                if display == True:
-                    self.lad_set_info("recall preset " + str(preset+1))
+        if preset >= 0 and preset < PRESET_CNT:
+            display = False
+            self.lad_called_preset = -1
 
-        return
+            for i in range(len(self.lad_matrix_registers_objs[self.lad_current_group])):
+                if i < len(self.lad_matrix_presets_valid[self.lad_current_group][preset]):
+                    if self.lad_matrix_presets_valid[self.lad_current_group][preset][i] == True:
+                        if self.lad_matrix_registers_objs[self.lad_current_group][i] != None:
+                            param = self.lad_matrix_registers_objs[self.lad_current_group][i]
+                            param.value = self.adaptValue(self.lad_matrix_presets[self.lad_current_group][preset][i], 0.0, 1.0, param.min, param.max)
+                            self.lad_called_preset = preset
+                            display = True
 
-    def lad_preset_toggle_param_button(self, preset, fader):
+            if display == True:
+                self.lad_set_info("recall preset " + str(preset+1))
+
+            self.lad_show_currents() # lad_preset_recall
+
+    def lad_preset_toggle_param_button(self, button):
 
         valid = False
-        param = None
-        value = 0.0
 
-        if self.lad_edit_preset_mode == True and self.lad_edit_preset != -1:
+        if self.lad_preset_rec_active == True:
             if self.lad_current_group >= 0:
                 if self.lad_current_group < GROUP_CNT:
-
                     g = self.lad_current_group
-                    p = preset
                     page = self.lad_perf_page[g]
+                    f = button + page*self.FADER_CNT
+                    if f < len(self.lad_rec_buttons_state):
+                        valid = self.lad_rec_buttons_state[f]
 
-                    if (fader + page*self.FADER_CNT) < len(self.lad_matrix_registers_objs[g]):
-
-                        f = fader + page*self.FADER_CNT
-
-                        param = self.lad_matrix_registers_objs[g][f]
-                        valid = self.lad_matrix_presets_valid[g][p][f]
-                        value = self.lad_matrix_presets[g][p][f]
-
-        address = "/lad/toggled" + str(fader + 1)
+        address = "/lad/toggled" + str(button + 1)
         if valid == True:
             self.oscEndpoint.send(address, 1.0)
         else:
@@ -4821,53 +4844,38 @@ class LiveOSC:
 
 
     def lad_edit_preset_mode_gui(self):
-        address = "/lad/label_arm/color"
-
-        if self.lad_edit_preset_mode == False:
-            self.oscEndpoint.send(address, "gray")
+        if self.lad_preset_rec_active == False:
             for i in range(self.FADER_CNT):
                 addressfd = "/lad/faderd" + str(i+1) + "/visible"
                 self.oscEndpoint.send(addressfd, "True")
         else:
-            self.oscEndpoint.send(address, lad_hl_color)
             for i in range(self.FADER_CNT):
                 addressfd = "/lad/faderd" + str(i+1) + "/visible"
                 self.oscEndpoint.send(addressfd, "False")
-                addresstd = "/lad/toggled" + str(i + 1)
-                self.oscEndpoint.send(addresstd, 0.0)
 
-    def lad_preset_enable_param(self, fader, val):
 
-        if self.lad_edit_preset_mode == True:
+    def lad_preset_enable_param(self, button):
+        if self.lad_preset_rec_active == True:
             if self.lad_current_group >= 0:
                 if self.lad_current_group < GROUP_CNT:
-                    preset = self.lad_edit_preset
-                    if preset != -1:
-                        if (fader + self.lad_perf_page[self.lad_current_group]*self.FADER_CNT) < len(self.lad_matrix_registers_objs[self.lad_current_group]):
+                    g = self.lad_current_group
+                    page = self.lad_perf_page[g]
+                    f = button + page*self.FADER_CNT
+                    if f < len(self.lad_rec_buttons_state):
+                        self.lad_rec_buttons_state[f] = not self.lad_rec_buttons_state[f]
+                        self.lad_preset_toggle_param_button(button)
 
-                            g = self.lad_current_group
-                            p = preset
-                            page = self.lad_perf_page[g]
+    def lad_preset_set_all_params(self):
+        for b in range(len(self.lad_rec_buttons_state)):
+            self.lad_rec_buttons_state[b] = True
+            self.lad_preset_toggle_param_button(b)
 
-                            if (fader + page*self.FADER_CNT) < len(self.lad_matrix_registers_objs[g]):
 
-                                f = fader + page*self.FADER_CNT
-                                param = self.lad_matrix_registers_objs[g][f]
+    def lad_preset_invert_params(self):
+        for b in range(len(self.lad_rec_buttons_state)):
+            self.lad_rec_buttons_state[b] = not self.lad_rec_buttons_state[b]
+            self.lad_preset_toggle_param_button(b)
 
-                                if param != None:
-                                    valid = self.lad_matrix_presets_valid[g][p][f]
-                                    valid = not valid
-                                    self.lad_matrix_presets_valid[g][p][f] = valid
-                                    self.lad_matrix_presets[g][p][f] = self.adaptValue(param.value, param.min, param.max, 0.0, 1.0)
-                                    self.lad_save_param_cfg() # lad_preset_enable_param
-
-                                    addresstd = "/lad/toggled" + str(fader + 1)
-                                    if valid == True:
-                                        self.oscEndpoint.send(addresstd, 1.0)
-                                    else:
-                                        self.oscEndpoint.send(addresstd, 0.0)
-
-        return
 
 #    ## MORPH ################################################################################################
     lad_morph = False
@@ -4883,6 +4891,7 @@ class LiveOSC:
         if self.lad_preset_rec_active == True:
             return
 
+        self.lad_called_preset = -1
         self.lad_matrix_morph_presets[self.lad_current_group][0] = -1
         self.lad_matrix_morph_presets[self.lad_current_group][1] = -1
         self.lad_morph = not self.lad_morph
@@ -5143,6 +5152,9 @@ class LiveOSC:
 
     def lad_set_mixer_gui(self):
 
+        if self.lad_perf_mode == True:
+            return
+
         address = "/lad/label_mixer/color"
 
         if self.lad_mixer == True:
@@ -5151,12 +5163,16 @@ class LiveOSC:
             self.oscEndpoint.send(address, "")
             address = "/lad/label_pgp"
             self.oscEndpoint.send(address, "")
+            address = "/lad/label_set_all_clear"
+            self.oscEndpoint.send(address, "")
         else:
             self.oscEndpoint.send(address, "gray")
             address = "/lad/label_pgm"
             self.oscEndpoint.send(address, "PG -")
             address = "/lad/label_pgp"
             self.oscEndpoint.send(address, "PG +")
+            address = "/lad/label_set_all_clear"
+            self.oscEndpoint.send(address, "SET ALL")
 
         return
 
@@ -5286,22 +5302,27 @@ class LiveOSC:
 
             address = "/lad/label_arm"
             self.oscEndpoint.send(address, "ARM")
-
             address = "/lad/label_arm/color"
             self.oscEndpoint.send(address, "red")
+
+            address = "/lad/label_ovd"
+            self.oscEndpoint.send(address, "OVD")
+            address = "/lad/label_ovd/color"
+            self.oscEndpoint.send(address, "red")
+
 
             self.touch_send_midi_info(1, self.lad_mixer)
             address = "/lad/label_mixer"
             self.oscEndpoint.send(address, "MIXER")
 
+            address = "/lad/label_trm"
+            self.oscEndpoint.send(address, "TR -")
+            address = "/lad/label_trp"
+            self.oscEndpoint.send(address, "TR +")
             address = "/lad/label_dvm"
             self.oscEndpoint.send(address, "DV -")
             address = "/lad/label_dvp"
             self.oscEndpoint.send(address, "DV +")
-            address = "/lad/label_pgm"
-            self.oscEndpoint.send(address, "PG -")
-            address = "/lad/label_pgp"
-            self.oscEndpoint.send(address, "PG +")
 
             address = "/lad/label_basic_perf"
             self.oscEndpoint.send(address, "BASIC")
@@ -5317,19 +5338,19 @@ class LiveOSC:
             address = "/lad/label_set_all_clear"
             self.oscEndpoint.send(address, "SET ALL")
 
-
             for i in range(PRESET_CNT):
                 address = "/lad/label_p" + str(i+1)
                 self.oscEndpoint.send(address, "")
                 address = "/lad/label_p" + str(i+1) + "/color"
                 self.oscEndpoint.send(address, "gray")
 
-
-
         else:
 
             address = "/lad/label_arm"
-            self.oscEndpoint.send(address, "EDIT PRESET")
+            self.oscEndpoint.send(address, "")
+
+            address = "/lad/label_ovd"
+            self.oscEndpoint.send(address, "")
 
             address = "/lad/label_arm/color"
             self.oscEndpoint.send(address, "gray")
@@ -5342,8 +5363,12 @@ class LiveOSC:
             address = "/lad/label_mixer/color"
             self.oscEndpoint.send(address, "gray")
 
-            address = "/lad/label_dvm"
+            address = "/lad/label_trm"
+            self.oscEndpoint.send(address, "ALL")
+            address = "/lad/label_trp"
             self.oscEndpoint.send(address, "")
+            address = "/lad/label_dvm"
+            self.oscEndpoint.send(address, "INVERT")
             address = "/lad/label_dvp"
             self.oscEndpoint.send(address, "")
             address = "/lad/label_pgm"
@@ -5362,7 +5387,6 @@ class LiveOSC:
             address = "/lad/label_rec/color"
             self.oscEndpoint.send(address, "gray")
             self.touch_send_midi_info(4, False)
-
 
             address = "/lad/label_morph"
             self.oscEndpoint.send(address, "MORPH")
@@ -5909,7 +5933,7 @@ class LiveOSC:
         for i in range(GROUP_CNT):
             self.lad_clear_registered_obj(i)
         self.lad_load_param_live_cfg()
-        self.lad_show_currents()
+        self.lad_show_currents() # util_reload
         self.lad_export_cfg() # util_reload
 
     def util_load_cb(self, msg, source):
