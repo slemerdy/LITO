@@ -50,8 +50,9 @@ from time import sleep
 from math import floor
 from datetime import datetime
 
-
 import const
+
+import uart
 
 lad_hl_color = "orange"
 lad_hl_color2 = "orange"
@@ -131,8 +132,11 @@ class LiveOSC:
         mylog("----------------------------------------") # PERMANENT
         mylog("Starting LITO", datetime.now()) # PERMANENT
 
+
         self.basicAPI = 0       
         self.oscEndpoint = RemixNet.OSCEndpoint()
+        if self.oscEndpoint.get_wio_mode() == True:
+            uart.Luart()
         self.new_song = 1
         self.use_midi_cache = True
         self.cache_midi = {}
@@ -547,7 +551,7 @@ class LiveOSC:
         
         self.rem_scenes_listener()
         self.song().remove_tracks_listener(self.refresh_state)
-
+        self.wio_send_shutdown()
         self.touch_exit()
         self.oscEndpoint.send('/remix/oscserver/shutdown', 1)
         self.oscEndpoint.shutdown()
@@ -4110,6 +4114,7 @@ class LiveOSC:
             text = ""
             text2 = ""
             if track != None:
+                wio_dname = "Mixer"
                 if self.lad_mixer_mode == 0:
                     param = track.mixer_device.volume
                     if relative == False:
@@ -4117,10 +4122,14 @@ class LiveOSC:
                     else:
                         self.lad_get_param_relative_value(param, value)
                     text = str(track.name) + " Mixer" + " Volume"
+                    wio_pname = "Volume"
+
                     text2 = str(track.mixer_device.volume)
                     self.lad_saved_obj = track.mixer_device.volume
                 elif self.lad_mixer_mode == 1:
                     text =str(track.name) + " Mixer" + " Panning"
+                    wio_pname = "Panning"
+
                     param = track.mixer_device.panning
                     if relative == False:
                         param.value = self.adaptValue(value, 0.0, 1.0, param.min, param.max)
@@ -4137,6 +4146,7 @@ class LiveOSC:
                             IDS = self.LETTERS[idx]
 
                         text = str(track.name) + " Mixer" + " Send-" + IDS
+                        wio_pname = "Send-" + IDS
                         param = track.mixer_device.sends[self.lad_mixer_mode-2]
                         if relative == False:
                             param.value = self.adaptValue(value, 0.0, 1.0, param.min, param.max)
@@ -4148,6 +4158,10 @@ class LiveOSC:
 
 
             self.lad_set_current(text, text2) #lad_fader_mixer_input
+            self.wio_send_track_name(str(track.name))
+            self.wio_send_device_name(wio_dname)
+            self.wio_send_param_name(wio_pname)
+            self.wio_send_param_val(text2)
 
         return
 
@@ -4318,6 +4332,11 @@ class LiveOSC:
             text = tname + dname + str(param.name)
             text2 = str(param.str_for_value(param.value))
             self.lad_set_current(text, text2) #lad_faderd_basic_input
+
+            self.wio_send_track_name(tname)
+            self.wio_send_device_name(dname)
+            self.wio_send_param_name(str(param.name))
+            self.wio_send_param_val(text2)
         return
 
     def lad_fader_perf_input(self, fader, value, relative):
@@ -4356,6 +4375,11 @@ class LiveOSC:
             text = tname + dname + str(param.name)
             text2 = str(param.str_for_value(param.value))
             self.lad_set_current(text, text2) #lad_fader_perf_input
+            self.wio_send_track_name(tname)
+            self.wio_send_device_name(dname)
+            self.wio_send_param_name(str(param.name))
+            self.wio_send_param_val(text2)
+
         return
 
 #    ## SET TO FADERS ########################
@@ -5040,6 +5064,7 @@ class LiveOSC:
                             param.value = self.adaptValue(value, 0.0, 1.0, param.min, param.max)
                             text = "morphing " + str(preset_src + 1) + ":" + str(preset_dest + 1) + " (" + str(int(val_fader*100)) + " %)"
                             self.lad_set_current(text)
+                            self.wio_send_info(str(int(val_fader*100)) + " %")
                             self.morph_set_current(group, text)
                             if group == 0:
                                 val = int(self.adaptValue(val_fader, 0, 1.0, 0, 127))
@@ -5248,6 +5273,7 @@ class LiveOSC:
         self.oscEndpoint.send(address, message)
         address = "/util/label_info"
         self.oscEndpoint.send(address, message)
+        self.wio_send_info(message)
 
 
     def lad_set_current(self, message, message2 = ""):
@@ -5257,6 +5283,7 @@ class LiveOSC:
         self.oscEndpoint.send(address, message)
         address = "/util/label_current"
         self.oscEndpoint.send(address, message)
+
 
     def lad_show_currents(self):
         self.lad_update_faders() #show currents
@@ -5288,8 +5315,10 @@ class LiveOSC:
             self.oscEndpoint.send(address, str(label))
             address = "/util/label_track"
             self.oscEndpoint.send(address, str(label))
+            self.wio_send_track_name(str(label))
 
             self.lad_clear_tr_dv_pg_cu(False,True,True,True)
+            self.wio_send_device_count(" ")
 
     def lad_update_tr_dv_pg(self):
 
@@ -5306,19 +5335,31 @@ class LiveOSC:
 
         address = "/lad/label_track"
         self.oscEndpoint.send(address, str(track.name))
-
         address = "/util/label_track"
         self.oscEndpoint.send(address, str(track.name))
+        self.wio_send_track_name(str(track.name))
 
         if self.lad_perf_mode == False:
 
+
             if no_device:
                 self.lad_clear_tr_dv_pg_cu(False,True,False,False)
+                if len(track.devices) == 0:
+                    self.wio_send_device_count("No device")
+                else:
+                    self.wio_send_device_count(" ")
             else:
                 address = "/lad/label_device"
                 self.oscEndpoint.send(address, str(device.name))
                 address = "/util/label_device"
                 self.oscEndpoint.send(address, str(device.name))
+                self.wio_send_device_name(str(device.name))
+                idx = self.tuple_idx(track.devices, device)
+                if idx == -1:
+                    self.wio_send_device_count(" ")
+                else:
+                    text = str(idx+1) + "/" + str(len(track.devices))
+                    self.wio_send_device_count(text)
 
             if no_device:
                 self.lad_clear_tr_dv_pg_cu(False,False,True,False)
@@ -5328,6 +5369,7 @@ class LiveOSC:
                 self.oscEndpoint.send(address, text)
                 address = "/util/label_page"
                 self.oscEndpoint.send(address, text)
+                self.wio_send_page(text)
 
         else:
 
@@ -5335,11 +5377,16 @@ class LiveOSC:
             self.oscEndpoint.send(address, "")
             address = "/util/label_device"
             self.oscEndpoint.send(address, "")
+            self.wio_send_device_name("")
 
             address = "/lad/label_page"
             self.oscEndpoint.send(address, "")
             address = "/util/label_page"
             self.oscEndpoint.send(address, "")
+            self.wio_send_page(" ")
+
+            self.wio_send_device_count(" ")
+
 
         self.lad_clear_tr_dv_pg_cu(False,False,False,True)
 
@@ -5462,21 +5509,28 @@ class LiveOSC:
             self.oscEndpoint.send(address, str(""))
             address = "/util/label_track"
             self.oscEndpoint.send(address, str(""))
+            self.wio_send_track_name(" ")
 
         if dv == True:
             address = "/lad/label_device"
             self.oscEndpoint.send(address, str(""))
             address = "/util/label_device"
             self.oscEndpoint.send(address, str(""))
+            self.wio_send_device_name(" ")
 
         if pg == True:
             address = "/lad/label_page"
             self.oscEndpoint.send(address, str(""))
             address = "/util/label_page"
             self.oscEndpoint.send(address, str(""))
+            self.wio_send_page(" ")
+
 
         if cu == True:
             self.lad_set_current("")
+            self.wio_send_param_name(" ")
+            self.wio_send_param_val(" ")
+
         return
 
 
@@ -5951,6 +6005,8 @@ class LiveOSC:
     def util_sync_phone_cb(self, msg, source):
         if msg[2] != 0:
             return
+        self.wio_send_shutdown()
+        self.oscEndpoint.set_wio_mode(False)
         self.oscEndpoint.set_phone_osc(True)
         self.FADER_CNT = 8
         self.util_sync_ext(msg, source)
@@ -5960,6 +6016,8 @@ class LiveOSC:
         if msg[2] != 0:
             return
         self.FADER_CNT = 16
+        self.wio_send_shutdown()
+        self.oscEndpoint.set_wio_mode(False)
         self.oscEndpoint.set_phone_osc(False)
         self.util_sync_ext(msg, source)
         return
@@ -6122,6 +6180,7 @@ class LiveOSC:
     def util_update_phone_label(self, fader, text):
         address = "/util/labelf" + str(fader)
         self.oscEndpoint.send(address, text)
+        self.wio_send_param_name2(fader, text)
 
     def test_fct(self):
         return
@@ -6664,6 +6723,71 @@ class LiveOSC:
 
 #    ################################################################################################
 #    ##  END OF LOOP TAB
+
+#    ################################################################################################
+#    ##  WIO
+
+    wio_track_name = ''
+    wio_device_name = ''
+    wio_param_name = ''
+    wio_param_val = ''
+    wio_page = ''
+    wio_info = ''
+    wio_device_count = ''
+
+    def wio_send_track_name(self, text):
+        if text != self.wio_track_name:
+            address = "/wio/track_name"
+            self.wio_track_name = text
+            self.oscEndpoint.send(address, text)
+
+    def wio_send_device_name(self, text):
+        if text != self.wio_device_name:
+            address = "/wio/device_name"
+            self.wio_device_name = text
+            self.oscEndpoint.send(address, text)
+
+    def wio_send_page(self, text):
+        if text != self.wio_page:
+            address = "/wio/page"
+            self.wio_page = text
+            self.oscEndpoint.send(address, text)
+
+    def wio_send_param_name(self, text):
+        if text != self.wio_param_name:
+            address = "/wio/param_name"
+            self.wio_param_name = text
+            self.oscEndpoint.send(address, text)
+
+    def wio_send_param_name2(self, fader, text):
+        address = "/wio/param_name2"
+        self.oscEndpoint.send(address, (int(fader),str(text)))
+
+    def wio_send_param_val(self, text):
+        if text != self.wio_param_val:
+            address = "/wio/param_val"
+            self.wio_param_val = text
+            self.oscEndpoint.send(address, text)
+
+    def wio_send_info(self, text):
+        if text != self.wio_info:
+            address = "/wio/info"
+            self.wio_info = text
+            self.oscEndpoint.send(address, text)
+
+    def wio_send_device_count(self, text):
+        if text != self.wio_device_count:
+            address = "/wio/device_count"
+            self.wio_device_count = text
+            self.oscEndpoint.send(address, text)
+
+    def wio_send_shutdown(self):
+        address = "/wio/shutdown"
+        self.oscEndpoint.send(address, "shutdown")
+
+#    ################################################################################################
+#    ##  END OF WIO
+
 
 def generate_strip_string(display_string):
 

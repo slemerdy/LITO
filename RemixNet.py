@@ -90,10 +90,12 @@ import OSC
         
 class OSCEndpoint:
         
-    def __init__(self, remoteHost='192.168.1.22', remotePort=9008, localHost='', localPort=9009, ):
+    def __init__(self, remoteHost='127.0.0.1', remotePort=9008, localHost='', localPort=9009, ):
+    #def __init__(self, remoteHost='192.168.1.22', remotePort=9008, localHost='', localPort=9009, ):
     #def __init__(self, remoteHost='192.168.1.17', remotePort=9008, localHost='', localPort=9009, ):
     #def __init__(self, remoteHost='192.168.137.37', remotePort=9008, localHost='', localPort=9009, ):
     #def __init__(self, remoteHost='192.168.1.82', remotePort=9003, localHost='', localPort=9002, ):
+
         """
         This is the main class we the use as a nexus point in this module.
 
@@ -123,12 +125,12 @@ class OSCEndpoint:
 
         self._send = False
 
-        #self.disable_osc = True
         self.disable_osc = False
-        self.phone_osc  = True
-        #self.phone_osc  = False
+        self.phone_osc  = False
         self.cache_address = {}
         self.sents_count = 0
+
+        self.wio_mode = True
 
 
         myslog('OSCEndpoint starting, local address ' + str(self.localAddr) + ' remote address ' + str(self.remoteAddr))
@@ -149,6 +151,13 @@ class OSCEndpoint:
     def get_phone_osc(self):
         return self.phone_osc
 
+    def set_wio_mode(self, _wio_mode):
+        self.wio_mode = _wio_mode
+        return
+
+    def get_wio_mode(self):
+        return self.wio_mode
+
     def set_disable_osc(self, _disable_osc):
         self.disable_osc = _disable_osc
         return
@@ -158,11 +167,21 @@ class OSCEndpoint:
 
     def send(self, address, msg, force = False):
 
-        if address.startswith("/util/") == False and self.disable_osc == True:
-            return
+        if address.startswith("/wio/") == False:
 
-        if ((address.startswith("/util/") == False) and (address.startswith("/euc/") == False) and (address.startswith("/loop/") == False)) and self.phone_osc == True:
-            return
+            if self.wio_mode == False:
+
+                if address.startswith("/util/") == False and self.disable_osc == True:
+                    return
+
+                if ((address.startswith("/util/") == False) and (address.startswith("/euc/") == False) and (address.startswith("/loop/") == False)) and self.phone_osc == True:
+                    return
+            else:
+                return
+
+        elif address.startswith("/wio/") == True:
+            if self.wio_mode == False:
+                return
 
         send_it = True
         if (address in self.cache_address) == False:

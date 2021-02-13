@@ -14,4 +14,5 @@ DISTFILES += \
     const.py \
     hook.py \
     socket_live8.py \
-    struct.py
+    struct.py \
+    uart.py
