@@ -1,6 +1,7 @@
 LITO
 =======
 MIDI and OSC remote script for Ableton Live 10 based on LiveOSC. See Below for information about LiveOSC. Thanks to the LiveOSC devs.
+A Seeed WIO terminal can be used for displaying Live infos.
 
 # Installation
 https://help.ableton.com/hc/en-us/articles/209072009-Installing-third-party-remote-scripts
@@ -44,12 +45,12 @@ All the other controls are buttons. The expected behaviour is a push button (no 
 
 
 # relative_mode
-mode 1 is 2’s Complement from 64 / Relative (Binary Offset)
+mode 1 is 2â€™s Complement from 64 / Relative (Binary Offset)
 turn right gives 065 - 127
 turn left gives 063 - 000
 equivalent to mode R2 on BCR2000
 
-mode 2 is 2’s Complement from 0 / Relative (2’s Complement)
+mode 2 is 2â€™s Complement from 0 / Relative (2â€™s Complement)
 turn right gives 001 - 64
 turn left gives 127 - 065
 equivalent to mode R1 on BCR2000
