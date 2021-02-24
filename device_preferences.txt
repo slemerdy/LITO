@@ -1,0 +1,17 @@
+# file for device preferences: display first these parameters
+
+device = TAL-BassLine
+PORTAMENTO
+PULSEVOLUME
+SAWVOLUME
+SUBOSCVOLUME
+NOISEVOLUME
+VCFENVELOPE
+CUTOFF
+RESONANCE
+DECAY
+VCFDRIVE
+
+device = Delay
+Feedback
+Dry/Wet

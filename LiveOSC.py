@@ -49,9 +49,8 @@ import random
 from time import sleep
 from math import floor
 from datetime import datetime
-
+import os
 import const
-
 import uart
 
 lad_hl_color = "orange"
@@ -132,6 +131,7 @@ class LiveOSC:
         mylog("----------------------------------------") # PERMANENT
         mylog("Starting LITO", datetime.now()) # PERMANENT
 
+        self.dev_pref_read_file()
 
         self.basicAPI = 0       
         self.oscEndpoint = RemixNet.OSCEndpoint()
@@ -4481,9 +4481,33 @@ class LiveOSC:
             for i in range(self.FADER_CNT):
                 self.lad_update_fader_param(None, i+1) # device 1
         else:
-            params = device.parameters
+            _params = device.parameters
+            params = []
+
+            if self.dev_pref_dict.has_key(device.class_display_name) == False:
+                occ = 0
+                for p in _params:
+                    if occ != 0:
+                        params.append(p)
+                    occ += 1
+                params.append(_params[0])
+            else:
+                for n in self.dev_pref_dict[device.class_display_name]:
+                    for p in _params:
+                        if p.name == n:
+                            params.append(p)
+                occ = 0
+                for p in _params:
+                    if occ != 0:
+                        idx = self.tuple_idx(params, p)
+                        if idx == -1:
+                            params.append(p)
+                    occ += 1
+                params.append(_params[0])
+
 
             for i in range(self.FADER_CNT):
+#                p = (self.lad_device_page * self.FADER_CNT) + i + 1 # + 1 => skip device on
                 p = (self.lad_device_page * self.FADER_CNT) + i
                 if p >= len(params):
                     self.lad_update_fader_param(None, i+1) # device 2
@@ -5815,10 +5839,30 @@ class LiveOSC:
         return
 
     def lad_export_cfg(self):
+        song = None
+        try:
+            song = LiveUtils.getSong()
+        except:
+            pass
+
+        if song != None:
+            track = song.view.selected_track
+            if track != None:
+                device = LiveUtils.getSong().view.selected_track.view.selected_device
+                if device != None:
+                    if not isinstance(device, Live.MixerDevice.MixerDevice):
+                        text = "\n---------------------------\nCurrent device log:"
+                        text += "\ndevice = "
+                        text += device.class_display_name
+                        text += "\n"
+                        for param in device.parameters:
+                            text += param.name
+                            text += "\n"
+                        mylog(text)
+
         tracks_txt = ""
         for track in self.all_tracks:
             tracks_txt = tracks_txt + track.name + " : " + track.get_data("LITO_TR_ID", 'null') + "\n"
-
         myslog("\n---------------------------\nTracks list:\n" + str(tracks_txt)) # PERMANENT
 
         self.lad_save_param_cfg(True)
@@ -6788,6 +6832,68 @@ class LiveOSC:
 #    ################################################################################################
 #    ##  END OF WIO
 
+#    ################################################################################################
+#    ##  DEVICE PREFERENCES
+    dev_pref_loaded = False
+    dev_pref_dict = {}
+
+    def dev_pref_read_file(self):
+        if self.dev_pref_loaded == False:
+            dev_file_name = os.path.join(os.path.dirname(__file__), "device_preferences.txt")
+            if os.path.exists(dev_file_name) == True:
+                with open(dev_file_name) as dev_file:
+                    ll = []
+                    device_name = ''
+                    while True:
+                        # Get next line from file
+                        line = dev_file.readline()
+                        # if line is empty
+                        # end of file is reached
+                        if not line:
+                            break
+
+                        line = line.strip()
+                        if len(line) != 0:
+                            if line.startswith('#') == False:
+                                if line.startswith('device') == True:
+                                    if '=' in line:
+                                        idx = line.index('=')
+                                        line = line[idx+1:]
+                                        found,idx = get_first_alnum(line)
+                                        if found == True:
+                                            if len(device_name) != 0 and len(ll) != 0:
+                                                self.dev_pref_dict[device_name] = ll
+                                                ll = []
+                                            device_name = line[idx:]
+                                else:
+                                    ll.append(line)
+
+
+                    if len(device_name) != 0 and len(ll) != 0:
+                        self.dev_pref_dict[device_name] = ll
+                    self.dev_pref_loaded = True
+                    mylog("----") # PERMANENT
+                    mylog(dev_file_name) # PERMANENT
+                    mylog(self.dev_pref_dict) # PERMANENT
+
+
+
+    #    ################################################################################################
+    #    ##  END OF DEVICE PREFERENCES
+
+#    ################################################################################################
+#    ##  MISC
+
+def get_first_alnum(text):
+    L = len(text)
+    vivi = 0
+    found = False
+    for v in range(1,L):
+        if text[vivi].isalnum():
+            found = True
+            break
+        vivi = vivi + 1
+    return found, vivi
 
 def generate_strip_string(display_string):
 
@@ -6813,4 +6919,8 @@ def generate_strip_string(display_string):
         ret = ret[len(ret)-NUM_CHARS_PER_DISPLAY_STRIP:]
 
     return ret
+
+#    ################################################################################################
+#    ##  END OF MISC
+
 

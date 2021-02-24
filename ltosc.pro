@@ -12,6 +12,7 @@ DISTFILES += \
     configuration_examples/const_xtm_abs.py \
     configuration_examples/const_xtm_rel.py \
     const.py \
+    device_preferences.txt \
     hook.py \
     socket_live8.py \
     struct.py \

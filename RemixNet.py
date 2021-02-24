@@ -86,8 +86,8 @@ version = Live.Application.get_application().get_major_version()
 #            import socket
 
 import socket
-import OSC 
-        
+import OSC
+
 class OSCEndpoint:
         
     def __init__(self, remoteHost='127.0.0.1', remotePort=9008, localHost='', localPort=9009, ):
@@ -95,6 +95,11 @@ class OSCEndpoint:
     #def __init__(self, remoteHost='192.168.1.17', remotePort=9008, localHost='', localPort=9009, ):
     #def __init__(self, remoteHost='192.168.137.37', remotePort=9008, localHost='', localPort=9009, ):
     #def __init__(self, remoteHost='192.168.1.82', remotePort=9003, localHost='', localPort=9002, ):
+
+        self.disable_osc = True
+        self.phone_osc  = False
+        self.wio_mode = True
+
 
         """
         This is the main class we the use as a nexus point in this module.
@@ -125,12 +130,11 @@ class OSCEndpoint:
 
         self._send = False
 
-        self.disable_osc = False
-        self.phone_osc  = False
+
         self.cache_address = {}
         self.sents_count = 0
 
-        self.wio_mode = True
+
 
 
         myslog('OSCEndpoint starting, local address ' + str(self.localAddr) + ' remote address ' + str(self.remoteAddr))
