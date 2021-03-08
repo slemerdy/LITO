@@ -28,6 +28,7 @@ Your device shall be configured as is in Connections:OSC
 - Host: your computer local Ip address 10.0.0.5, 192.168.9.17
 - Port (Outgoing): 9009
 - Port (Ingoing): 9008
+- Bundle messages shall be disabled. LITO script does not support Bundle Messages.
 
 Once done, click on SYNC button on the first tab. This last operation shall be done at each startup of Live or if the connection between TouchOSC and the computer has been lost.
 

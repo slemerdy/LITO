@@ -6099,7 +6099,6 @@ class LiveOSC:
             return
 
         self.util_reload()
-
         return
 
     def util_apply_to_all_tracks_cb(self, msg, source):
@@ -6876,7 +6875,53 @@ class LiveOSC:
                     mylog(dev_file_name) # PERMANENT
                     mylog(self.dev_pref_dict) # PERMANENT
 
+    '''
+    user_folders = None
+    current_item = None
 
+
+    def db_select_item(self, name):
+        if self.current_item != None:
+            children = self.current_item.children
+            lchild = None
+            for child in children:
+                if name == child.name:
+                    self.current_item = child
+                    break
+
+    def db_select_placeCB(self):
+
+        self.user_folders = None
+        self.current_item = None
+
+        browser = Live.Application.get_application().browser
+        self.user_folders = browser.user_folders
+        mylog("start")
+        mylog(self.user_folders)
+        mylog(self.current_item)
+        for folder in self.user_folders:
+            for folder in self.user_folders:
+                if folder.name == "Kontakt":
+                    self.current_item = folder
+                    break
+
+        mylog("folder selected")
+        mylog(self.current_item)
+
+        self.db_select_item("TST_LITO")
+        mylog("TST_LITO selected")
+        mylog(self.current_item)
+
+        name = "ZG1 ORIENTAL.nki"
+        #name = "ZG VOX 24.1.wav"
+        self.db_select_item(name)
+        mylog(name, "selected")
+        mylog(self.current_item)
+
+        if self.current_item != None:
+            mylog("loading", name)
+            browser.preview_item(self.current_item)
+    '''
 
     #    ################################################################################################
     #    ##  END OF DEVICE PREFERENCES
